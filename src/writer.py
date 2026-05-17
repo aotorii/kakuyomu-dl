@@ -79,8 +79,8 @@ class XhtmlWriter:
 
         for block in chapter.blocks:
             if block.type == BlockType.PARAGRAPH:
-
-                lines.append(P_TEMPLATE.substitute(text=_escape(block.text)))
+                lines.append(f'<p>{block.text.replace("&", "&amp;")}</p>')
+                # lines.append(P_TEMPLATE.substitute(text=_escape(block.text)))
 
             elif block.type == BlockType.SCENE_BREAK:
                 if block.text:

@@ -243,7 +243,9 @@ class KakuyomuScraper:
         if is_blank:
             return ""
         p = copy.copy(tag)
-        return p.get_text()
+        for rp in p.find_all("rp"):
+            rp.decompose()
+        return p.decode_contents()
 
 def _strip_date(title: str) -> str:
     return _DATE_RE.sub("", title).strip()
