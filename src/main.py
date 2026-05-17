@@ -189,14 +189,14 @@ def cmd_check(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kakuyomu-dl",
-        description="Download chapters from Kakuyomu web novels.",
+        description="Download chapters from kakuyomu web novels",
     )
     parser.add_argument(
         "--delay",
         type=float,
         default=1.0,
         metavar="SECONDS",
-        help="Delay between HTTP requests (default: 1.0s)",
+        help="Delay between HTTP requests",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -204,35 +204,28 @@ def build_parser() -> argparse.ArgumentParser:
     toc_p = subparsers.add_parser("toc", help="List all chapters for a novel")
     toc_p.add_argument(
         "series",
-        help="Series ID or full Kakuyomu URL",
+        help="Series ID or full kakuyomu URL",
     )
     toc_p.set_defaults(func=cmd_toc)
 
     fetch_p = subparsers.add_parser("fetch", help="Fetch chapter content")
     fetch_p.add_argument(
         "series",
-        help="Series ID or full Kakuyomu URL",
+        help="Series ID or full kakuyomu URL",
     )
     fetch_p.add_argument(
         "--chapters",
         metavar="SPEC",
         help=(
-            "Which chapters to fetch. "
-            "Examples: '1,2,3' or '1-5' or '1,3-5,7'. "
-            "Omit to fetch all."
+            "Select the chapters you want to fetch. "
+            "Examples: '1-5' or '1,3-5,7'."
         ),
     )
     fetch_p.add_argument(
         "--out-dir",
         default=OUT_DIR / "{series_id}/xhtml",
         metavar="DIR",
-        help="Directory to write XHTML files into. {series_id} is substituted automatically. (default: out/{series_id}/xhtml)",
-    )
-    fetch_p.add_argument(
-        "--ruby",
-        default="strip",
-        choices=["strip", "keep"],
-        help="How to handle furigana: strip (default) or keep",
+        help="Directory to write XHTML files into",
     )
     fetch_p.add_argument(
         "--no-overwrite",
@@ -248,45 +241,45 @@ def build_parser() -> argparse.ArgumentParser:
         "--epub-out-dir",
         default=OUT_DIR / "{series_id}",
         metavar="DIR",
-        help="Where to write the .epub file when using --epub (default: out/{series_id})",
+        help="Where to write the .epub file when using --epub",
     )
     fetch_p.set_defaults(func=cmd_fetch)
 
     epub_p = subparsers.add_parser(
         "epub",
-        help="Build an EPUB from already-fetched XHTML files (no re-scraping chapters)",
+        help="Build an EPUB from already-fetched XHTML files",
     )
     epub_p.add_argument(
         "series",
-        help="Series ID or full Kakuyomu URL (used to fetch metadata + TOC titles)",
+        help="Series ID or full kakuyomu URL",
     )
     epub_p.add_argument(
         "--xhtml-dir",
-        default="out/{series_id}/xhtml",
+        default=OUT_DIR / "{series_id}/xhtml",
         metavar="DIR",
-        help="Directory containing the .xhtml chapter files. {series_id} is substituted automatically. (default: out/{series_id}/xhtml)",
+        help="Directory containing the .xhtml chapter files",
     )
     epub_p.add_argument(
         "--out-dir",
         default=OUT_DIR / "{series_id}",
         metavar="DIR",
-        help="Where to write the .epub file (default: out/{series_id})",
+        help="Where to write the .epub file",
     )
     epub_p.add_argument(
         "--filename",
         default="",
         metavar="NAME",
-        help="Override the output filename (default: derived from novel title)",
+        help="Override the output filename",
     )
     epub_p.set_defaults(func=cmd_epub)
 
     check_p = subparsers.add_parser(
         "check",
-        help="Check for new episodes without downloading (requires a prior fetch)",
+        help="Check for new episodes",
     )
     check_p.add_argument(
         "series",
-        help="Series ID or full Kakuyomu URL",
+        help="Series ID or full kakuyomu URL",
     )
     check_p.set_defaults(func=cmd_check)
 

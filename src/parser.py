@@ -28,16 +28,10 @@ class ParsedChapter:
         return [b.text for b in self.blocks if b.type == BlockType.PARAGRAPH]
 
 
-# class RubyMode(Enum):
-#     STRIP = "strip"
-#     KEEP  = "keep"
-
 _SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇—―─·・…〜~＝=\-_]+$")
 _DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
 
 class ChapterParser:
-    # def __init__(self, ruby_mode: RubyMode = RubyMode.STRIP):
-    #     self.ruby_mode = ruby_mode
     
     def __init__(self):
         pass
