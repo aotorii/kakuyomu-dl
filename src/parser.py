@@ -41,11 +41,8 @@ class ChapterParser:
 
         for raw in chapter.raw_paragraphs:
             block = self._classify(raw)
-            if block is None:
+            if block is None or (block.type == BlockType.SCENE_BREAK and blocks and blocks[-1].type == BlockType.SCENE_BREAK):
                 continue
-            if block.type == BlockType.SCENE_BREAK:
-                if blocks and blocks[-1].type == BlockType.SCENE_BREAK:
-                    continue
             blocks.append(block)
 
         while blocks and blocks[0].type == BlockType.SCENE_BREAK:

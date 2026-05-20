@@ -55,15 +55,15 @@ def print_toc(entries: list[TocEntry]) -> None:
     print()
     last_category = object()
     locked_count = 0
-    for e in entries:
-        if e.category != last_category:
-            last_category = e.category
-            if e.category:
-                print(f"\n  [{e.category}]")
-        date = f"  ({e.published_on})" if e.published_on else ""
-        lock = " (locked)" if e.locked else ""
-        print(f"  {str(e.index).rjust(width)}  {e.title}{date}{lock}")
-        if e.locked:
+    for chapter in entries:
+        if chapter.category != last_category:
+            last_category = chapter.category
+            if chapter.category:
+                print(f"\n  [{chapter.category}]")
+        date = f"  ({chapter.published_on})" if chapter.published_on else ""
+        lock = " (locked)" if chapter.locked else ""
+        print(f"  {str(chapter.index).rjust(width)}  {chapter.title}{date}{lock}")
+        if chapter.locked:
             locked_count += 1
     free = len(entries) - locked_count
     print(f"\nTotal: {len(entries)} chapter(s) ({free} free, {locked_count} locked)")
@@ -103,7 +103,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     meta, entries, apollo = scraper.fetch_meta_and_toc(series_id)
     print(f"  Title:  {meta.title}")
     print(f"  Author: {meta.author}")
-    print(f"  {len(entries)} chapter(s) found ({sum(1 for e in entries if e.locked)} locked).")
+    print(f"  {len(entries)} chapter(s) found ({sum(1 for chapter in entries if chapter.locked)} locked).")
 
     old_apollo = cache.load(series_id)
     if old_apollo:
@@ -178,10 +178,15 @@ def cmd_check(args: argparse.Namespace) -> None:
     _, _, new_apollo = scraper.fetch_meta_and_toc(series_id)
 
     result = cache.diff(old_apollo, new_apollo, series_id)
+    if result.has_new_unlocked:
+        print(f"{len(result.new_unlocked)} new available episode(s) since last fetch:")
+        for title in result.new_unlocked:
+            print(f"  + {title}")
     if result.has_update:
         print(f"{len(result.new_episode_ids)} new episode(s) since last fetch:")
-        for title in result.new_episode_titles:
-            print(f"  + {title}")
+        for title, is_free in result.new_episode_titles:
+            lock = " (locked)" if not is_free else ""
+            print(f"  + {title}{lock}")
     else:
         print(f"Up to date. ({result.new_count} episode(s) total)")
 
