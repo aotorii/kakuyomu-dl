@@ -225,7 +225,8 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         print(f"\n#{series['id']:02d}")
         print(f"  Title:  {series['title']}")
         print(f"  Author:  {series['author']}")
-        
+        print(f"  series_id:  {series['series_id']}")
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
