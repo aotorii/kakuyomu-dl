@@ -231,108 +231,108 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kakuyomu-dl",
-        description="Download chapters from kakuyomu web novels",
+        description="download chapters from kakuyomu web novels",
     )
     parser.add_argument(
         "--delay",
         type=float,
         default=1.0,
         metavar="SECONDS",
-        help="Delay between HTTP requests",
+        help="delay between HTTP requests",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    toc_p = subparsers.add_parser("toc", help="List all chapters for a novel")
+    toc_p = subparsers.add_parser("toc", help="list all chapters for a novel")
     toc_p.add_argument(
         "series",
-        help="Series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu URL",
     )
     toc_p.set_defaults(func=cmd_toc)
 
-    fetch_p = subparsers.add_parser("fetch", help="Fetch chapter content")
+    fetch_p = subparsers.add_parser("fetch", help="fetch chapter content")
     fetch_p.add_argument(
         "series",
-        help="Series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu URL",
     )
     fetch_p.add_argument(
         "--chapters",
         metavar="SPEC",
         help=(
-            "Select the chapters you want to fetch. "
-            "Examples: '1-5' or '1,3-5,7'."
+            "select the chapters you want to fetch, "
+            "examples: '1-7' or '1,3-5,7'"
         ),
     )
     fetch_p.add_argument(
         "--out-dir",
         default=OUT_DIR / "{series_id}/xhtml",
         metavar="DIR",
-        help="Directory to write XHTML files into",
+        help="directory to write XHTML files into",
     )
     fetch_p.add_argument(
         "--no-overwrite",
         action="store_true",
-        help="Skip chapters whose XHTML file already exists",
+        help="skip chapters whose XHTML file already exists",
     )
     fetch_p.add_argument(
         "--epub",
         action="store_true",
-        help="Build an EPUB immediately after fetching chapters",
+        help="build an EPUB immediately after fetching chapters",
     )
     fetch_p.add_argument(
         "--epub-out-dir",
         default=OUT_DIR / "{series_id}",
         metavar="DIR",
-        help="Where to write the .epub file when using --epub",
+        help="where to write the .epub file when using --epub",
     )
     fetch_p.set_defaults(func=cmd_fetch)
 
     epub_p = subparsers.add_parser(
         "epub",
-        help="Build an EPUB from already-fetched XHTML files",
+        help="build an EPUB from already-fetched XHTML files",
     )
     epub_p.add_argument(
         "series",
-        help="Series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu URL",
     )
     epub_p.add_argument(
         "--xhtml-dir",
         default=OUT_DIR / "{series_id}/xhtml",
         metavar="DIR",
-        help="Directory containing the .xhtml chapter files",
+        help="directory containing the .xhtml chapter files",
     )
     epub_p.add_argument(
         "--out-dir",
         default=OUT_DIR / "{series_id}",
         metavar="DIR",
-        help="Where to write the .epub file",
+        help="where to write the .epub file",
     )
     epub_p.add_argument(
         "--filename",
         default="",
         metavar="NAME",
-        help="Override the output filename",
+        help="override the output filename",
     )
     epub_p.set_defaults(func=cmd_epub)
 
     check_p = subparsers.add_parser(
         "check",
-        help="Check for new episodes",
+        help="check for new episodes",
     )
     check_p.add_argument(
         "series",
-        help="Series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu URL",
     )
     check_p.set_defaults(func=cmd_check)
 
     bookmark_p = subparsers.add_parser(
         "bookmark",
-        help="Bookmark your favourite series"
+        help="bookmark your favourite series"
     )
     bookmark_p.add_argument(
         "series",
         nargs="?",
-        help="Series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu URL",
     )
     bookmark_p.set_defaults(func=cmd_bookmark)
 

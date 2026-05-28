@@ -171,7 +171,7 @@ class EpubBuilder:
             chapter = epub.EpubHtml(
                 uid=f"chapter_{entry.episode_id}",
                 title=entry.title,
-                file_name=f"Text/{xhtml_path.name}",
+                file_name=f"text/{xhtml_path.name}",
                 lang=self.language,
                 content=xhtml_path.read_bytes(),
             )
@@ -196,7 +196,7 @@ class EpubBuilder:
         if not any_category:
             book.toc = tuple(
                 epub.Link(
-                    chapter_by_episode[e.episode_id].file_name + "#start",
+                    chapter_by_episode[e.episode_id].file_name + f"#toc-{e.index:03d}",
                     e.title,
                     chapter_by_episode[e.episode_id].id,
                 )
@@ -219,7 +219,7 @@ class EpubBuilder:
                 if entry.episode_id not in chapter_by_episode:
                     continue
                 ch = chapter_by_episode[entry.episode_id]
-                link = epub.Link(ch.file_name + "#start", entry.title, ch.id)
+                link = epub.Link(ch.file_name + f"#toc-{entry.index:03d}", entry.title, ch.id)
 
                 if entry.category != current_section:
                     flush_section()
