@@ -2,6 +2,8 @@ import argparse
 import logging
 import re
 import sys
+import os
+import json
 
 from scraper import KakuyomuScraper, TocEntry, Chapter
 from parser import ChapterParser
@@ -190,6 +192,40 @@ def cmd_check(args: argparse.Namespace) -> None:
     else:
         print(f"Up to date. ({result.new_count} episode(s) total)")
 
+def cmd_bookmark(args: argparse.Namespace) -> None:
+    FILE = OUT_DIR / "bookmark.json"
+    try:
+        with open(FILE, "r", encoding="utf-8") as f:
+            bookmark = json.load(f)
+    except FileNotFoundError:
+        bookmark = []
+    
+    if args.series:
+        series_id = parse_series_id(args.series)
+        scraper = KakuyomuScraper(delay=args.delay)
+        meta = scraper.fetch_work_meta(series_id)
+        if series_id in [d["series_id"] for d in bookmark]:
+            print("This series is already in your bookmark list.")
+            return
+        new_fav = {
+            "id": len(bookmark) + 1,
+            "title": meta.title,
+            "author": meta.author,
+            "series_id": series_id
+        }
+        bookmark.append(new_fav)
+        with open(FILE, "w", encoding="utf-8") as f:
+            json.dump(bookmark, f, ensure_ascii=False, indent=4)
+        return
+    if not bookmark:
+        print("No series found in bookmark list.")
+        return
+    print(f"{len(bookmark)} series found in bookmark list:")
+    for series in bookmark:
+        print(f"\n#{series['id']:02d}")
+        print(f"  Title:  {series['title']}")
+        print(f"  Author:  {series['author']}")
+        
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -287,6 +323,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Series ID or full kakuyomu URL",
     )
     check_p.set_defaults(func=cmd_check)
+
+    bookmark_p = subparsers.add_parser(
+        "bookmark",
+        help="Bookmark your favourite series"
+    )
+    bookmark_p.add_argument(
+        "series",
+        nargs="?",
+        help="Series ID or full kakuyomu URL",
+    )
+    bookmark_p.set_defaults(func=cmd_bookmark)
 
     return parser
 
