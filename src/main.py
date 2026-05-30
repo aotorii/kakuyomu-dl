@@ -4,6 +4,8 @@ import re
 import sys
 import os
 import json
+import inflect
+from pathlib import Path
 
 from scraper import KakuyomuScraper, TocEntry, Chapter
 from parser import ChapterParser
@@ -20,6 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://kakuyomu.jp/works/"
+
 
 def parse_series_id(value: str) -> str:
     value = value.strip().rstrip("/")
@@ -51,6 +54,9 @@ def parse_chapter_selection(spec: str, total: int) -> list[int]:
         )
     return valid
 
+def parse_plural(noun: str, num: int, prefix: str = "") -> str:
+    P = inflect.engine()
+    return f"{num} {prefix}{P.plural_noun(noun, num)}"
 
 def print_toc(entries: list[TocEntry]) -> None:
     width = len(str(len(entries)))
@@ -68,7 +74,7 @@ def print_toc(entries: list[TocEntry]) -> None:
         if chapter.locked:
             locked_count += 1
     free = len(entries) - locked_count
-    print(f"\nTotal: {len(entries)} chapter(s) ({free} free, {locked_count} locked)")
+    print(f"\nTotal: {parse_plural('chapter', len(entries))} ({free} free, {locked_count} locked)")
 
 
 def print_chapter_preview(chapter: Chapter) -> None:
@@ -105,17 +111,22 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     meta, entries, apollo = scraper.fetch_meta_and_toc(series_id)
     print(f"  Title:  {meta.title}")
     print(f"  Author: {meta.author}")
-    print(f"  {len(entries)} chapter(s) found ({sum(1 for chapter in entries if chapter.locked)} locked).")
+    print(f"  {parse_plural('chapter', len(entries))} found ({sum(1 for chapter in entries if chapter.locked)} locked).\n")
 
     old_apollo = cache.load(series_id)
     if old_apollo:
         result = cache.diff(old_apollo, apollo, series_id)
+        if result.has_new_unlocked:
+            print(f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:")
+            for title in result.new_unlocked:
+                print(f"  + {title}")
         if result.has_update:
-            print(f"  {len(result.new_episode_ids)} new episode(s) since last fetch:")
-            for title in result.new_episode_titles:
-                print(f"    + {title}")
+            print(f"  {parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:")
+            for title, is_free in result.new_episode_titles:
+                lock = " (locked)" if not is_free else ""
+                print(f"  + {title}{lock}")
         else:
-            print("  No new episodes since last fetch.")
+            print("No new episodes since last fetch.\n")
 
     cache.save(apollo, series_id)
 
@@ -124,17 +135,36 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         if not indices:
             print("[error] No valid chapters selected.", file=sys.stderr)
             sys.exit(1)
-        print(f"Fetching {len(indices)} chapter(s): {indices}")
+        print(f"\nFetching {parse_plural('chapter', len(indices))}: {indices}")
     else:
         indices = None
-        print(f"Fetching all {len(entries)} chapter(s).")
+        print(f"\nFetching all {parse_plural('chapter', len(entries))}")
+
+    if args.no_overwrite:
+        out_dir = Path(str(args.out_dir).format(series_id=series_id))
+        written_indices = [
+            int(xhtml.stem.split("_")[0])
+            for xhtml in (out_dir.glob("*.xhtml")
+            if out_dir.exists() else [])
+        ]
+        # print(written_indices)
+        # return
+        entries_indices = [entry.index for entry in entries]
+        indices = (
+            [index for index in indices if index not in written_indices]
+            if indices is not None
+            else [index for index in entries_indices if index not in written_indices]
+        )
+
+    if indices == []:
+        print(f"\nDone. 0 files written to '{writer.out_dir}'.")
+        return
 
     raw_chapters = scraper.fetch_chapters(entries, indices=indices)
-
     parsed = parser.parse_many(raw_chapters)
-
     paths = writer.write_many(parsed)
-    print(f"\nDone. {len(paths)} file(s) written to '{writer.out_dir}':")
+    suffix = ':' if paths else '.'
+    print(f"\nDone. {parse_plural('file', len(paths))} written to '{writer.out_dir}'{suffix}")
     for p in paths:
         print(f"  {p}")
 
@@ -154,7 +184,7 @@ def cmd_epub(args: argparse.Namespace) -> None:
     meta, entries, _ = scraper.fetch_meta_and_toc(series_id)
     print(f"  Title:  {meta.title}")
     print(f"  Author: {meta.author}")
-    print(f"  {len(entries)} chapter(s) in TOC.")
+    print(f"  {parse_plural('chapter', len(entries))} in TOC.")
 
     print("Building EPUB…")
     builder = EpubBuilder(
@@ -181,16 +211,16 @@ def cmd_check(args: argparse.Namespace) -> None:
 
     result = cache.diff(old_apollo, new_apollo, series_id)
     if result.has_new_unlocked:
-        print(f"{len(result.new_unlocked)} new available episode(s) since last fetch:")
+        print(f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:")
         for title in result.new_unlocked:
             print(f"  + {title}")
     if result.has_update:
-        print(f"{len(result.new_episode_ids)} new episode(s) since last fetch:")
+        print(f"{parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:")
         for title, is_free in result.new_episode_titles:
             lock = " (locked)" if not is_free else ""
             print(f"  + {title}{lock}")
     else:
-        print(f"Up to date. ({result.new_count} episode(s) total)")
+        print(f"Up to date. ({parse_plural('episode', result.new_count)} total)")
 
 def cmd_bookmark(args: argparse.Namespace) -> None:
     FILE = OUT_DIR / "bookmark.json"
