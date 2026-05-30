@@ -220,6 +220,39 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
     if not bookmark:
         print("No series found in bookmark list.")
         return
+    
+    if args.fetch:
+        for series in bookmark:
+            # parser = build_parser()
+            # print(f"\n#{series['id']:02d} {series['title']}\n")
+            # fetch_args = parser.parse_args(["fetch", f"{series['series_id']}", "--no-overwrite"])
+            # fetch_args.func(fetch_args)
+            print(f"\n#{series['id']:02d} {series['title']}\n")
+            series_id=series['series_id']
+            fetch_args = argparse.Namespace(
+                series=series_id,
+                delay=args.delay,
+                chapters=None,
+                out_dir=OUT_DIR/"{series_id}/xhtml",
+                ruby="strip",
+                no_overwrite=True,
+                epub=False,
+                epub_out_dir=OUT_DIR/"{series_id}",
+            )
+            cmd_fetch(fetch_args)
+        return
+    
+    if args.check:
+        for series in bookmark:
+            print(f"\n#{series['id']:02d} {series['title']}\n")
+            series_id=series['series_id']
+            check_args = argparse.Namespace(
+                series=series_id,
+                delay=args.delay                
+            )
+            cmd_check(check_args)
+        return
+
     print(f"{len(bookmark)} series found in bookmark list:")
     for series in bookmark:
         print(f"\n#{series['id']:02d}")
@@ -227,6 +260,11 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         print(f"  Author:  {series['author']}")
         print(f"  series_id:  {series['series_id']}")
 
+# def build_args(parser, **overrides):
+#     args = parser.parse_args([])
+#     for key, value in overrides.items():
+#         setattr(args, key, value)
+#     return args
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -246,14 +284,14 @@ def build_parser() -> argparse.ArgumentParser:
     toc_p = subparsers.add_parser("toc", help="list all chapters for a novel")
     toc_p.add_argument(
         "series",
-        help="series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu url",
     )
     toc_p.set_defaults(func=cmd_toc)
 
     fetch_p = subparsers.add_parser("fetch", help="fetch chapter content")
     fetch_p.add_argument(
         "series",
-        help="series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu url",
     )
     fetch_p.add_argument(
         "--chapters",
@@ -293,7 +331,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     epub_p.add_argument(
         "series",
-        help="series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu url",
     )
     epub_p.add_argument(
         "--xhtml-dir",
@@ -321,7 +359,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check_p.add_argument(
         "series",
-        help="series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu url",
     )
     check_p.set_defaults(func=cmd_check)
 
@@ -332,8 +370,21 @@ def build_parser() -> argparse.ArgumentParser:
     bookmark_p.add_argument(
         "series",
         nargs="?",
-        help="series ID or full kakuyomu URL",
+        help="series ID or full kakuyomu url",
     )
+
+    group = bookmark_p.add_mutually_exclusive_group()
+    group.add_argument(
+        "--check",
+        action="store_true",
+        help="check update for series in bookmark list"
+    )
+    group.add_argument(
+        "--fetch",
+        action="store_true",
+        help="fetch all series in bookmark list"
+    )
+
     bookmark_p.set_defaults(func=cmd_bookmark)
 
     return parser
