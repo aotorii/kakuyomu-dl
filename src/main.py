@@ -226,37 +226,42 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
     FILE = OUT_DIR / "bookmark.json"
     try:
         with open(FILE, "r", encoding="utf-8") as f:
-            bookmark = json.load(f)
+            bookmarks = json.load(f)
     except FileNotFoundError:
-        bookmark = []
+        bookmarks = []
     
-    if args.series:
-        series_id = parse_series_id(args.series)
-        scraper = KakuyomuScraper(delay=args.delay)
-        meta = scraper.fetch_work_meta(series_id)
-        if series_id in [d["series_id"] for d in bookmark]:
-            print("This series is already in your bookmark list.")
-            return
-        new_fav = {
-            "id": len(bookmark) + 1,
-            "title": meta.title,
-            "author": meta.author,
-            "series_id": series_id
-        }
-        bookmark.append(new_fav)
+    if args.add:
+        for series in args.add:
+            series_id = parse_series_id(series)
+            scraper = KakuyomuScraper(delay=args.delay)
+            meta = scraper.fetch_work_meta(series_id)
+            if series_id in [dict["series_id"] for dict in bookmarks]:
+                print(f"This series is already on your bookmark list: {meta.title}")
+                continue
+            bookmark = {
+                "id": len(bookmarks) + 1,
+                "title": meta.title,
+                "author": meta.author,
+                "series_id": series_id
+            }
+            bookmarks.append(bookmark)
         with open(FILE, "w", encoding="utf-8") as f:
-            json.dump(bookmark, f, ensure_ascii=False, indent=4)
+            json.dump(bookmarks, f, ensure_ascii=False, indent=4)
         return
-    if not bookmark:
-        print("No series found in bookmark list.")
+
+    if not bookmarks:
+        print("No series found on the bookmark list.")
         return
-    
+
+    if args.delete:
+        series_id = [parse_series_id(series) for series in args.delete]
+        bookmarks = [dict for dict in bookmarks if dict["series_id"] not in series_id]
+        with open(FILE, "w", encoding="utf-8") as f:
+            json.dump(bookmarks, f, ensure_ascii=False, indent=4)
+        return
+
     if args.fetch:
-        for series in bookmark:
-            # parser = build_parser()
-            # print(f"\n#{series['id']:02d} {series['title']}\n")
-            # fetch_args = parser.parse_args(["fetch", f"{series['series_id']}", "--no-overwrite"])
-            # fetch_args.func(fetch_args)
+        for series in bookmarks:
             print(f"\n#{series['id']:02d} {series['title']}\n")
             series_id=series['series_id']
             fetch_args = argparse.Namespace(
@@ -273,7 +278,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         return
     
     if args.check:
-        for series in bookmark:
+        for series in bookmarks:
             print(f"\n#{series['id']:02d} {series['title']}\n")
             series_id=series['series_id']
             check_args = argparse.Namespace(
@@ -283,23 +288,17 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
             cmd_check(check_args)
         return
 
-    print(f"{len(bookmark)} series found in bookmark list:")
-    for series in bookmark:
+    print(f"{len(bookmarks)} series found on bookmark list:")
+    for series in bookmarks:
         print(f"\n#{series['id']:02d}")
         print(f"  Title:  {series['title']}")
         print(f"  Author:  {series['author']}")
         print(f"  series_id:  {series['series_id']}")
 
-# def build_args(parser, **overrides):
-#     args = parser.parse_args([])
-#     for key, value in overrides.items():
-#         setattr(args, key, value)
-#     return args
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kakuyomu-dl",
-        description="download chapters from kakuyomu web novels",
+        description="A downloader to download chapters from kakuyomu web novels.",
     )
     parser.add_argument(
         "--delay",
@@ -395,24 +394,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     bookmark_p = subparsers.add_parser(
         "bookmark",
-        help="bookmark your favourite series"
-    )
-    bookmark_p.add_argument(
-        "series",
-        nargs="?",
-        help="series ID or full kakuyomu url",
+        help="show your bookmark list"
     )
 
     group = bookmark_p.add_mutually_exclusive_group()
     group.add_argument(
         "--check",
         action="store_true",
-        help="check update for series in bookmark list"
+        help="check update for all series on the bookmark list"
     )
     group.add_argument(
         "--fetch",
         action="store_true",
-        help="fetch all series in bookmark list"
+        help="fetch all series on the bookmark list"
+    )
+    group.add_argument(
+        "--delete",
+        nargs="+",
+        metavar="SERIES",
+        help="delete series from your bookmark list"
+    )
+    group.add_argument(
+        "--add",
+        nargs="+",
+        metavar="SERIES",
+        help="add series to your bookmark list"
     )
 
     bookmark_p.set_defaults(func=cmd_bookmark)
