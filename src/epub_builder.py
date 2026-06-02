@@ -2,8 +2,11 @@ import logging
 import uuid
 from pathlib import Path
 from ebooklib import epub
+from PIL import Image, ImageDraw, ImageFont
+import textwrap
+import io
 from scraper import WorkMeta, TocEntry
-from paths import OUT_DIR
+from paths import OUT_DIR, ASSET
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +141,18 @@ class EpubBuilder:
         book.set_language(self.language)
         book.add_author(meta.author)
 
+        cover = generate_cover(meta.title, meta.author)
+        book.set_cover("cover.jpg", cover)
+
+        cover_page = epub.EpubHtml(
+        uid="cover_page",
+        title="Cover",
+        file_name="cover.xhtml",
+        lang=self.language,
+        )
+        cover_page.content = b'<html><body><img src="cover.jpg" style="max-width:100%;max-height:100vh;display:block;margin:0 auto;" /></body></html>'
+        book.add_item(cover_page)
+
         if meta.description:
             book.add_metadata("DC", "description", meta.description)
 
@@ -234,7 +249,7 @@ class EpubBuilder:
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
 
-        book.spine = ["nav"] + epub_chapters
+        book.spine = [cover_page, "nav"] + epub_chapters
 
         safe_title = _safe_filename(meta.title)
         out_filename = self.filename or f"{safe_title}.epub"
@@ -250,3 +265,58 @@ def _safe_filename(title: str) -> str:
     safe = re.sub(r'[\\/*?:"<>|]', "", title)
     safe = safe.strip().replace(" ", "_")
     return safe or "novel"
+
+
+def generate_cover(title: str, author: str, bg_path: str = ASSET / "cover.png") -> bytes:
+    img = Image.open(bg_path).convert("RGB")
+    draw = ImageDraw.Draw(img)
+    # expects 1400x2000
+    W, H = img.size
+
+    try:
+        font_title  = ImageFont.truetype(ASSET / "NotoSerifJP-Bold.ttf", 80)
+        font_author = ImageFont.truetype(ASSET / "NotoSerifJP-Regular.ttf", 48)
+    except IOError:
+        font_title = ImageFont.load_default()
+        font_author = ImageFont.load_default()
+
+    BLUE = "#0099cc"
+    DARK = "#1a1a1a"
+    GREY = "#444444"
+
+    TEXT_X_START = 180
+    TEXT_WIDTH = W - 220
+    STRIP_W  = 114
+    TEXT_PAD = 40
+    TEXT_X   = STRIP_W + TEXT_PAD
+    TEXT_W   = W - TEXT_X - TEXT_PAD
+
+    avg_char_w = draw.textbbox((0, 0), "あ", font=font_title)[2]
+    chars_per_line = max(1, int(TEXT_W / avg_char_w))
+    lines = textwrap.wrap(title, width=chars_per_line)
+
+    line_h = draw.textbbox((0, 0), "あ", font=font_title)[3]
+    line_gap = 20
+    block_h = len(lines) * line_h + (len(lines) - 1) * line_gap
+
+    y = (H * 0.70 - block_h) / 2
+
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font_title)
+        tw = bbox[2] - bbox[0]
+        x = TEXT_X + (TEXT_W - tw) / 2
+        draw.text((x, y), line, font=font_title, fill=DARK)
+        y += line_h + line_gap
+
+    y += 20
+    draw.rectangle([TEXT_X_START, y, TEXT_X_START + TEXT_WIDTH, y + 4], fill=BLUE)
+    y += 24
+
+    bbox = draw.textbbox((0, 0), author, font=font_author)
+    aw = bbox[2] - bbox[0]
+    x = TEXT_X_START + (TEXT_WIDTH - aw) / 2
+    draw.text((x, y), author, font=font_author, fill=GREY)
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return buf.getvalue()
