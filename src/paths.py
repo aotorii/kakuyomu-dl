@@ -5,5 +5,5 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "out"
 OUT_DIR.mkdir(exist_ok=True)
 
-ASSET = ROOT / "asset"
-ASSET.mkdir(exist_ok=True)
+ASSETS = ROOT / "assets"
+ASSETS.mkdir(exist_ok=True)

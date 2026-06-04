@@ -277,6 +277,20 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
             cmd_fetch(fetch_args)
         return
     
+    if args.epub:
+        for series in bookmarks:
+            print(f"\n#{series['id']:02d} {series['title']}\n")
+            series_id=series['series_id']
+            epub_args = argparse.Namespace(
+                series=series_id,
+                delay=args.delay,
+                xhtml_dir=OUT_DIR/"{series_id}/xhtml",
+                out_dir=OUT_DIR/"{series_id}",
+                filename=""
+            )
+            cmd_epub(epub_args)
+        return
+    
     if args.check:
         for series in bookmarks:
             print(f"\n#{series['id']:02d} {series['title']}\n")
@@ -344,7 +358,7 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_p.add_argument(
         "--epub",
         action="store_true",
-        help="build an EPUB immediately after fetching chapters",
+        help="build an epub immediately after fetching chapters",
     )
     fetch_p.add_argument(
         "--epub-out-dir",
@@ -356,7 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     epub_p = subparsers.add_parser(
         "epub",
-        help="build an EPUB from already-fetched XHTML files",
+        help="build an epub from already-fetched xhtml files",
     )
     epub_p.add_argument(
         "series",
@@ -401,12 +415,17 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument(
         "--check",
         action="store_true",
-        help="check update for all series on the bookmark list"
+        help="check update for all the series on the bookmark list"
     )
     group.add_argument(
         "--fetch",
         action="store_true",
-        help="fetch all series on the bookmark list"
+        help="fetch all the series on the bookmark list"
+    )
+    group.add_argument(
+        "--epub",
+        action="store_true",
+        help="build epubs for all the series on the bookmark list"
     )
     group.add_argument(
         "--delete",
@@ -420,6 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="SERIES",
         help="add series to your bookmark list"
     )
+
 
     bookmark_p.set_defaults(func=cmd_bookmark)
 

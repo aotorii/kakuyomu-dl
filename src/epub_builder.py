@@ -5,8 +5,9 @@ from ebooklib import epub
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 import io
+import inflect
 from scraper import WorkMeta, TocEntry
-from paths import OUT_DIR, ASSET
+from paths import OUT_DIR, ASSETS
 
 logger = logging.getLogger(__name__)
 
@@ -142,16 +143,16 @@ class EpubBuilder:
         book.add_author(meta.author)
 
         cover = generate_cover(meta.title, meta.author)
-        book.set_cover("cover.jpg", cover)
+        book.set_cover("image/cover.jpg", cover)
 
-        cover_page = epub.EpubHtml(
-        uid="cover_page",
-        title="Cover",
-        file_name="cover.xhtml",
-        lang=self.language,
-        )
-        cover_page.content = b'<html><body><img src="cover.jpg" style="max-width:100%;max-height:100vh;display:block;margin:0 auto;" /></body></html>'
-        book.add_item(cover_page)
+        # cover_page = epub.EpubHtml(
+        #     uid="cover_page",
+        #     title="Cover",
+        #     file_name="text/cover_page.xhtml",
+        #     lang=self.language,
+        # )
+        # cover_page.content = b'<html><body><img src="cover.jpg" style="max-width:100%;max-height:100vh;display:block;margin:0 auto;" /></body></html>'
+        # book.add_item(cover_page)
 
         if meta.description:
             book.add_metadata("DC", "description", meta.description)
@@ -197,12 +198,12 @@ class EpubBuilder:
 
         if not epub_chapters:
             raise FileNotFoundError(
-                f"No matching .xhtml files found in '{self.xhtml_dir}' "
+                f"No matching xhtml files found in '{self.xhtml_dir}' "
                 f"for work {meta.series_id}. Run 'fetch' first."
             )
         if missing:
             logger.warning(
-                f"{len(missing)} TOC entry(ies) have no matching XHTML file "
+                f"{parse_plural('entry', len(missing), "TOC ")} have no matching xhtml file "
                 f"(run fetch to download them):\n  " + "\n  ".join(missing)
             )
 
@@ -249,7 +250,7 @@ class EpubBuilder:
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
 
-        book.spine = [cover_page, "nav"] + epub_chapters
+        book.spine = ["cover", "nav"] + epub_chapters
 
         safe_title = _safe_filename(meta.title)
         out_filename = self.filename or f"{safe_title}.epub"
@@ -259,7 +260,6 @@ class EpubBuilder:
         logger.info(f"EPUB written: {out_path}")
         return out_path
 
-
 def _safe_filename(title: str) -> str:
     import re
     safe = re.sub(r'[\\/*?:"<>|]', "", title)
@@ -267,15 +267,15 @@ def _safe_filename(title: str) -> str:
     return safe or "novel"
 
 
-def generate_cover(title: str, author: str, bg_path: str = ASSET / "cover.png") -> bytes:
+def generate_cover(title: str, author: str, bg_path: str = ASSETS / "cover.png") -> bytes:
     img = Image.open(bg_path).convert("RGB")
     draw = ImageDraw.Draw(img)
     # expects 1400x2000
     W, H = img.size
 
     try:
-        font_title  = ImageFont.truetype(ASSET / "NotoSerifJP-Bold.ttf", 80)
-        font_author = ImageFont.truetype(ASSET / "NotoSerifJP-Regular.ttf", 48)
+        font_title  = ImageFont.truetype(ASSETS / "NotoSerifJP-Bold.ttf", 80)
+        font_author = ImageFont.truetype(ASSETS / "NotoSerifJP-Regular.ttf", 48)
     except IOError:
         font_title = ImageFont.load_default()
         font_author = ImageFont.load_default()
@@ -318,5 +318,9 @@ def generate_cover(title: str, author: str, bg_path: str = ASSET / "cover.png") 
     draw.text((x, y), author, font=font_author, fill=GREY)
 
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=85)
+    img.save(buf, format="JPEG", quality=95)
     return buf.getvalue()
+
+def parse_plural(noun: str, num: int, prefix: str = "") -> str:
+    P = inflect.engine()
+    return f"{num} {prefix}{P.plural_noun(noun, num)}"
