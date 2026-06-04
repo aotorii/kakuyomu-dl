@@ -84,8 +84,8 @@ class KakuyomuScraper:
         data = self._fetch_next_data(url)
 
         apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
-        meta = self._parse_work_meta(data, series_id, url)
-        entries = self._parse_toc(data, series_id)
+        meta = self._parse_work_meta(apollo, series_id, url)
+        entries = self._parse_toc(apollo, series_id)
 
         logger.info(f"TOC done — {len(entries)} episode(s) found.")
         return meta, entries, apollo
@@ -160,8 +160,8 @@ class KakuyomuScraper:
             )
         return json.loads(tag.string)
 
-    def _parse_work_meta(self, data: dict, series_id: str, url: str) -> WorkMeta:
-        apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
+    def _parse_work_meta(self, apollo: dict, series_id: str, url: str) -> WorkMeta:
+        # apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
         work_key = f"Work:{series_id}"
         work_node = apollo.get(work_key, {})
         title = work_node.get("title", f"Work {series_id}")
@@ -185,8 +185,8 @@ class KakuyomuScraper:
             work_url=url,
         )
 
-    def _parse_toc(self, data: dict, series_id: str) -> list[TocEntry]:
-        apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
+    def _parse_toc(self, apollo: dict, series_id: str) -> list[TocEntry]:
+        # apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
         work_key = f"Work:{series_id}"
         work_node = apollo.get(work_key, {})
 

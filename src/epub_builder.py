@@ -145,15 +145,6 @@ class EpubBuilder:
         cover = generate_cover(meta.title, meta.author)
         book.set_cover("image/cover.jpg", cover)
 
-        # cover_page = epub.EpubHtml(
-        #     uid="cover_page",
-        #     title="Cover",
-        #     file_name="text/cover_page.xhtml",
-        #     lang=self.language,
-        # )
-        # cover_page.content = b'<html><body><img src="cover.jpg" style="max-width:100%;max-height:100vh;display:block;margin:0 auto;" /></body></html>'
-        # book.add_item(cover_page)
-
         if meta.description:
             book.add_metadata("DC", "description", meta.description)
 
@@ -203,7 +194,7 @@ class EpubBuilder:
             )
         if missing:
             logger.warning(
-                f"{parse_plural('entry', len(missing), "TOC ")} have no matching xhtml file "
+                f"{parse_plural('entry', len(missing), 'TOC ')} have no matching xhtml file "
                 f"(run fetch to download them):\n  " + "\n  ".join(missing)
             )
 
@@ -257,7 +248,7 @@ class EpubBuilder:
         out_path = self.out_dir / out_filename
 
         epub.write_epub(str(out_path), book)
-        logger.info(f"EPUB written: {out_path}")
+        logger.info(f"epub written: {out_path}")
         return out_path
 
 def _safe_filename(title: str) -> str:

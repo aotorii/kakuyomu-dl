@@ -84,8 +84,6 @@ def _filter_apollo(apollo: dict, series_id: str) -> dict:
         if key.startswith(keep_prefixes) or key == author_ref
     }
 
-
-
 def _episode_list(apollo: dict, series_id: str) -> list[tuple[str, str, bool]]:
     work_node = apollo.get(f"Work:{series_id}", {})
     result: list[tuple[str, str, bool]] = []

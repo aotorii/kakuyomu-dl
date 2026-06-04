@@ -169,24 +169,27 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         print(f"  {p}")
 
     if args.epub:
-        print("\nBuilding EPUB…")
+        print("\nBuilding epub…")
         builder = EpubBuilder(series_id=series_id, xhtml_dir=writer.out_dir, out_dir=args.epub_out_dir)
         epub_path = builder.build(meta, entries)
-        print(f"EPUB written: {epub_path}")
+        print(f"epub written: {epub_path}")
 
 
 def cmd_epub(args: argparse.Namespace) -> None:
-    """Build an EPUB from already-fetched XHTML files."""
+    """Build an epub from already fetched xhtml files."""
     series_id = parse_series_id(args.series)
     scraper = KakuyomuScraper(delay=args.delay)
+    apollo = cache.load(series_id)
 
     print("Fetching work metadata and table of contents…")
-    meta, entries, _ = scraper.fetch_meta_and_toc(series_id)
+    # meta, entries, _ = scraper.fetch_meta_and_toc(series_id)
+    meta = scraper._parse_work_meta(apollo, series_id, BASE_URL + f"/{series_id}")
+    entries = scraper._parse_toc(apollo, series_id)
     print(f"  Title:  {meta.title}")
     print(f"  Author: {meta.author}")
     print(f"  {parse_plural('chapter', len(entries))} in TOC.")
 
-    print("Building EPUB…")
+    print("Building epub…")
     builder = EpubBuilder(
         series_id=series_id,
         xhtml_dir=str(args.xhtml_dir).format(series_id=series_id),
@@ -194,7 +197,7 @@ def cmd_epub(args: argparse.Namespace) -> None:
         filename=args.filename or None,
     )
     epub_path = builder.build(meta, entries)
-    print(f"Done. EPUB written: {epub_path}")
+    print(f"Done. epub written: {epub_path}")
 
 
 def cmd_check(args: argparse.Namespace) -> None:
@@ -307,7 +310,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         print(f"\n#{series['id']:02d}")
         print(f"  Title:  {series['title']}")
         print(f"  Author:  {series['author']}")
-        print(f"  series_id:  {series['series_id']}")
+        print(f"  Series_id:  {series['series_id']}")
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -348,12 +351,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--out-dir",
         default=OUT_DIR / "{series_id}/xhtml",
         metavar="DIR",
-        help="directory to write XHTML files into",
+        help="directory to write xhtml files into",
     )
     fetch_p.add_argument(
         "--no-overwrite",
         action="store_true",
-        help="skip chapters whose XHTML file already exists",
+        help="skip chapters whose xhtml file already exists",
     )
     fetch_p.add_argument(
         "--epub",
@@ -370,7 +373,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     epub_p = subparsers.add_parser(
         "epub",
-        help="build an epub from already-fetched xhtml files",
+        help="build an epub from already fetched xhtml files",
     )
     epub_p.add_argument(
         "series",
@@ -408,7 +411,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     bookmark_p = subparsers.add_parser(
         "bookmark",
-        help="show your bookmark list"
+        help="list your bookmarks"
     )
 
     group = bookmark_p.add_mutually_exclusive_group()
