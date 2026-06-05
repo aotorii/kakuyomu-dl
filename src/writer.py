@@ -1,7 +1,8 @@
 import logging
+from parser import BlockType, ParsedChapter
 from pathlib import Path
 from string import Template
-from parser import ParsedChapter, BlockType
+
 from paths import OUT_DIR
 
 logger = logging.getLogger(__name__)
@@ -27,13 +28,13 @@ $body_content
 </html>
 """)
 
-P_TEMPLATE = Template('<p>$text</p>')
+P_TEMPLATE = Template("<p>$text</p>")
 
 CATEGORY_TEMPLATE = Template('<p class="chapter-category">$text</p>')
 
 TITLE_TEMPLATE = Template('<h1 id="toc-$index" class="chapter-title">$text</h1>')
 
-BLANK_LINE = '<p><br/></p>'
+BLANK_LINE = "<p><br/></p>"
 
 
 class XhtmlWriter:
@@ -75,20 +76,23 @@ class XhtmlWriter:
         if chapter.category:
             lines.append(CATEGORY_TEMPLATE.substitute(text=_escape(chapter.category)))
 
-        lines.append(TITLE_TEMPLATE.substitute(
-            index=f"{chapter.index:03d}",
-            text=_escape(chapter.title)
-            ))
+        lines.append(
+            TITLE_TEMPLATE.substitute(
+                index=f"{chapter.index:03d}", text=_escape(chapter.title)
+            )
+        )
 
         for block in chapter.blocks:
             if block.type == BlockType.PARAGRAPH:
-                lines.append(f'<p>{block.text.replace("&", "&amp;")}</p>')
+                lines.append(f"<p>{block.text.replace('&', '&amp;')}</p>")
                 # lines.append(P_TEMPLATE.substitute(text=_escape(block.text)))
 
             elif block.type == BlockType.SCENE_BREAK:
                 if block.text:
                     lines.append(BLANK_LINE)
-                    lines.append(f'<p class="scene-break-deco">{_escape(block.text)}</p>')
+                    lines.append(
+                        f'<p class="scene-break-deco">{_escape(block.text)}</p>'
+                    )
                     lines.append(BLANK_LINE)
                 else:
                     lines.append(BLANK_LINE)

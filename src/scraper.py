@@ -1,25 +1,28 @@
-import re
 import copy
 import json
-import time
 import logging
+import re
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup, Tag
 
+from utils import parse_plural
+
 logger = logging.getLogger(__name__)
 
-BASE_URL  = "https://kakuyomu.jp"
-WORK_URL  = BASE_URL + "/works/{work_id}"
-EP_URL    = BASE_URL + "/works/{work_id}/episodes/{episode_id}"
+BASE_URL = "https://kakuyomu.jp"
+WORK_URL = BASE_URL + "/works/{work_id}"
+EP_URL = BASE_URL + "/works/{work_id}/episodes/{episode_id}"
 
 CHAPTER_MAIN_TITLE_SELECTOR = "p.chapterTitle"
-CHAPTER_SUB_TITLE_SELECTOR  = "p.widget-episodeTitle"
-CHAPTER_BODY_SELECTOR       = "div.widget-episodeBody"
+CHAPTER_SUB_TITLE_SELECTOR = "p.widget-episodeTitle"
+CHAPTER_BODY_SELECTOR = "div.widget-episodeBody"
 
 _DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
+
 
 @dataclass
 class TocEntry:
@@ -71,23 +74,25 @@ class KakuyomuScraper:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
 
-# Fetch work metadata from __NEXT_DATA__ JSON
+    # Fetch work metadata from __NEXT_DATA__ JSON
 
     def fetch_work_meta(self, series_id: str) -> WorkMeta:
         url = WORK_URL.format(work_id=series_id)
         data = self._fetch_next_data(url)
-        return self._parse_work_meta(data, series_id, url)
+        return self.parse_work_meta(data, series_id, url)
 
-    def fetch_meta_and_toc(self, series_id: str) -> tuple[WorkMeta, list[TocEntry], dict]:
+    def fetch_meta_and_toc(
+        self, series_id: str
+    ) -> tuple[WorkMeta, list[TocEntry], dict]:
         url = WORK_URL.format(work_id=series_id)
         logger.info(f"Fetching work page: {url}")
         data = self._fetch_next_data(url)
 
         apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
-        meta = self._parse_work_meta(apollo, series_id, url)
-        entries = self._parse_toc(apollo, series_id)
+        meta = self.parse_work_meta(apollo, series_id, url)
+        entries = self.parse_toc(apollo, series_id)
 
-        logger.info(f"TOC done — {len(entries)} episode(s) found.")
+        logger.info(f"TOC done — {parse_plural('episode', len(entries))} found.")
         return meta, entries, apollo
 
     def fetch_toc(self, series_id: str) -> list[TocEntry]:
@@ -136,9 +141,7 @@ class KakuyomuScraper:
         fetch = [e for e in targets if not e.locked]
         skip = [e for e in targets if e.locked]
         if skip:
-            logger.info(
-                f"Skipping {len(skip)} locked episode(s)"
-            )
+            logger.info(f"Skipping {parse_plural('episode', len(skip), 'locked ')}")
         chapters: list[Chapter] = []
         for i, entry in enumerate(fetch):
             if i > 0:
@@ -146,22 +149,8 @@ class KakuyomuScraper:
             chapters.append(self.fetch_chapter(entry))
         return chapters
 
-# Extract the __NEXT_DATA__ JSON blob
-
-    def _fetch_next_data(self, url: str) -> dict:
-        response = self.session.get(url, timeout=self.timeout)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "lxml")
-        tag = soup.find("script", id="__NEXT_DATA__")
-        if not tag:
-            raise RuntimeError(
-                f"__NEXT_DATA__ not found on {url}. "
-                "The page structure may have changed."
-            )
-        return json.loads(tag.string)
-
-    def _parse_work_meta(self, apollo: dict, series_id: str, url: str) -> WorkMeta:
-        # apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
+    # Extract the __NEXT_DATA__ JSON blob
+    def parse_work_meta(self, apollo: dict, series_id: str, url: str) -> WorkMeta:
         work_key = f"Work:{series_id}"
         work_node = apollo.get(work_key, {})
         title = work_node.get("title", f"Work {series_id}")
@@ -185,8 +174,7 @@ class KakuyomuScraper:
             work_url=url,
         )
 
-    def _parse_toc(self, apollo: dict, series_id: str) -> list[TocEntry]:
-        # apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
+    def parse_toc(self, apollo: dict, series_id: str) -> list[TocEntry]:
         work_key = f"Work:{series_id}"
         work_node = apollo.get(work_key, {})
 
@@ -201,7 +189,9 @@ class KakuyomuScraper:
                 continue
 
             chapter_val = toc_node.get("chapter")
-            chapter_ref = chapter_val.get("__ref", "") if isinstance(chapter_val, dict) else ""
+            chapter_ref = (
+                chapter_val.get("__ref", "") if isinstance(chapter_val, dict) else ""
+            )
             chapter_node = apollo.get(chapter_ref, {}) if chapter_ref else {}
             category = chapter_node.get("title", "")
 
@@ -213,7 +203,11 @@ class KakuyomuScraper:
                 typename = ep_node.get("__typename", "") if ep_node else ""
                 locked = typename == "EmptyEpisode"
 
-                episode_id = ep_node.get("id", ep_key.split(":")[-1]) if ep_node else ep_key.split(":")[-1]
+                episode_id = (
+                    ep_node.get("id", ep_key.split(":")[-1])
+                    if ep_node
+                    else ep_key.split(":")[-1]
+                )
                 raw_title = ep_node.get("title", "") if ep_node else ""
                 published_at = ep_node.get("publishedAt", "") if ep_node else ""
 
@@ -221,18 +215,31 @@ class KakuyomuScraper:
                 published_on = date_match.group(1) if date_match else published_at[:10]
                 title = _strip_date(raw_title)
 
-                entries.append(TocEntry(
-                    index=index,
-                    title=title,
-                    url=EP_URL.format(work_id=series_id, episode_id=episode_id),
-                    episode_id=episode_id,
-                    category=category,
-                    published_on=published_on,
-                    locked=locked,
-                ))
+                entries.append(
+                    TocEntry(
+                        index=index,
+                        title=title,
+                        url=EP_URL.format(work_id=series_id, episode_id=episode_id),
+                        episode_id=episode_id,
+                        category=category,
+                        published_on=published_on,
+                        locked=locked,
+                    )
+                )
                 index += 1
-
         return entries
+
+    def _fetch_next_data(self, url: str) -> dict:
+        response = self.session.get(url, timeout=self.timeout)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "lxml")
+        tag = soup.find("script", id="__NEXT_DATA__")
+        if not tag:
+            raise RuntimeError(
+                f"__NEXT_DATA__ not found on {url}. "
+                "The page structure may have changed."
+            )
+        return json.loads(tag.string)
 
     def _get_soup(self, url: str) -> BeautifulSoup:
         response = self.session.get(url, timeout=self.timeout)
@@ -246,6 +253,7 @@ class KakuyomuScraper:
         for rp in p.find_all("rp"):
             rp.decompose()
         return p.decode_contents()
+
 
 def _strip_date(title: str) -> str:
     return _DATE_RE.sub("", title).strip()

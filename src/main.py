@@ -1,18 +1,17 @@
 import argparse
+import json
 import logging
 import re
 import sys
-import os
-import json
-import inflect
+from parser import ChapterParser
 from pathlib import Path
 
-from scraper import KakuyomuScraper, TocEntry, Chapter
-from parser import ChapterParser
-from writer import XhtmlWriter
-from epub_builder import EpubBuilder
-from paths import OUT_DIR
 import cache
+from epub_builder import EpubBuilder
+from paths import EPUB_DIR, OUT_DIR
+from scraper import KakuyomuScraper, TocEntry
+from utils import parse_plural
+from writer import XhtmlWriter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,9 +53,6 @@ def parse_chapter_selection(spec: str, total: int) -> list[int]:
         )
     return valid
 
-def parse_plural(noun: str, num: int, prefix: str = "") -> str:
-    P = inflect.engine()
-    return f"{num} {prefix}{P.plural_noun(noun, num)}"
 
 def print_toc(entries: list[TocEntry]) -> None:
     width = len(str(len(entries)))
@@ -74,25 +70,13 @@ def print_toc(entries: list[TocEntry]) -> None:
         if chapter.locked:
             locked_count += 1
     free = len(entries) - locked_count
-    print(f"\nTotal: {parse_plural('chapter', len(entries))} ({free} free, {locked_count} locked)")
-
-
-def print_chapter_preview(chapter: Chapter) -> None:
-    prose = [p.text for p in chapter.raw_paragraphs if not p.is_blank and p.text]
-    print(f"\n{'=' * 60}")
-    print(f"Chapter {chapter.index}: {chapter.title}")
-    if chapter.category:
-        print(f"Category:   {chapter.category}")
-    print(f"Episode ID: {chapter.episode_id}")
-    print(f"Paragraphs: {len(prose)}")
-    print("-" * 60)
-    for p in prose[:5]:
-        print(f"  {p[:120].replace(chr(10), ' ')}")
-    if len(prose) > 5:
-        print(f"  ... ({len(prose) - 5} more paragraph(s))")
+    print(
+        f"\nTotal: {parse_plural('chapter', len(entries))} ({free} free, {locked_count} locked)"
+    )
 
 
 # Sub-commands
+
 
 def cmd_toc(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
@@ -105,23 +89,31 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
     scraper = KakuyomuScraper(delay=args.delay)
     parser = ChapterParser()
-    writer = XhtmlWriter(series_id=series_id, out_dir=args.out_dir, overwrite=not args.no_overwrite)
+    writer = XhtmlWriter(
+        series_id=series_id, out_dir=args.out_dir, overwrite=not args.no_overwrite
+    )
 
     print("Fetching work metadata and table of contents…")
     meta, entries, apollo = scraper.fetch_meta_and_toc(series_id)
     print(f"  Title:  {meta.title}")
     print(f"  Author: {meta.author}")
-    print(f"  {parse_plural('chapter', len(entries))} found ({sum(1 for chapter in entries if chapter.locked)} locked).\n")
+    print(
+        f"  {parse_plural('chapter', len(entries))} found ({sum(1 for chapter in entries if chapter.locked)} locked).\n"
+    )
 
     old_apollo = cache.load(series_id)
     if old_apollo:
         result = cache.diff(old_apollo, apollo, series_id)
         if result.has_new_unlocked:
-            print(f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:")
+            print(
+                f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:"
+            )
             for title in result.new_unlocked:
                 print(f"  + {title}")
         if result.has_update:
-            print(f"  {parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:")
+            print(
+                f"  {parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:"
+            )
             for title, is_free in result.new_episode_titles:
                 lock = " (locked)" if not is_free else ""
                 print(f"  + {title}{lock}")
@@ -144,8 +136,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         out_dir = Path(str(args.out_dir).format(series_id=series_id))
         written_indices = [
             int(xhtml.stem.split("_")[0])
-            for xhtml in (out_dir.glob("*.xhtml")
-            if out_dir.exists() else [])
+            for xhtml in (out_dir.glob("*.xhtml") if out_dir.exists() else [])
         ]
         # print(written_indices)
         # return
@@ -163,14 +154,18 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     raw_chapters = scraper.fetch_chapters(entries, indices=indices)
     parsed = parser.parse_many(raw_chapters)
     paths = writer.write_many(parsed)
-    suffix = ':' if paths else '.'
-    print(f"\nDone. {parse_plural('file', len(paths))} written to '{writer.out_dir}'{suffix}")
+    suffix = ":" if paths else "."
+    print(
+        f"\nDone. {parse_plural('file', len(paths))} written to '{writer.out_dir}'{suffix}"
+    )
     for p in paths:
         print(f"  {p}")
 
     if args.epub:
         print("\nBuilding epub…")
-        builder = EpubBuilder(series_id=series_id, xhtml_dir=writer.out_dir, out_dir=args.epub_out_dir)
+        builder = EpubBuilder(
+            series_id=series_id, xhtml_dir=writer.out_dir, out_dir=args.epub_out_dir
+        )
         epub_path = builder.build(meta, entries)
         print(f"epub written: {epub_path}")
 
@@ -183,8 +178,8 @@ def cmd_epub(args: argparse.Namespace) -> None:
 
     print("Fetching work metadata and table of contents…")
     # meta, entries, _ = scraper.fetch_meta_and_toc(series_id)
-    meta = scraper._parse_work_meta(apollo, series_id, BASE_URL + f"/{series_id}")
-    entries = scraper._parse_toc(apollo, series_id)
+    meta = scraper.parse_work_meta(apollo, series_id, BASE_URL + f"/{series_id}")
+    entries = scraper.parse_toc(apollo, series_id)
     print(f"  Title:  {meta.title}")
     print(f"  Author: {meta.author}")
     print(f"  {parse_plural('chapter', len(entries))} in TOC.")
@@ -197,7 +192,7 @@ def cmd_epub(args: argparse.Namespace) -> None:
         filename=args.filename or None,
     )
     epub_path = builder.build(meta, entries)
-    print(f"Done. epub written: {epub_path}")
+    print(f"Done. EPUB written: {epub_path}")
 
 
 def cmd_check(args: argparse.Namespace) -> None:
@@ -214,16 +209,21 @@ def cmd_check(args: argparse.Namespace) -> None:
 
     result = cache.diff(old_apollo, new_apollo, series_id)
     if result.has_new_unlocked:
-        print(f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:")
+        print(
+            f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:"
+        )
         for title in result.new_unlocked:
             print(f"  + {title}")
     if result.has_update:
-        print(f"{parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:")
+        print(
+            f"{parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:"
+        )
         for title, is_free in result.new_episode_titles:
             lock = " (locked)" if not is_free else ""
             print(f"  + {title}{lock}")
     else:
         print(f"Up to date. ({parse_plural('episode', result.new_count)} total)")
+
 
 def cmd_bookmark(args: argparse.Namespace) -> None:
     FILE = OUT_DIR / "bookmark.json"
@@ -232,7 +232,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
             bookmarks = json.load(f)
     except FileNotFoundError:
         bookmarks = []
-    
+
     if args.add:
         for series in args.add:
             series_id = parse_series_id(series)
@@ -245,7 +245,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
                 "id": len(bookmarks) + 1,
                 "title": meta.title,
                 "author": meta.author,
-                "series_id": series_id
+                "series_id": series_id,
             }
             bookmarks.append(bookmark)
         with open(FILE, "w", encoding="utf-8") as f:
@@ -266,42 +266,39 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
     if args.fetch:
         for series in bookmarks:
             print(f"\n#{series['id']:02d} {series['title']}\n")
-            series_id=series['series_id']
+            series_id = series["series_id"]
             fetch_args = argparse.Namespace(
                 series=series_id,
                 delay=args.delay,
                 chapters=None,
-                out_dir=OUT_DIR/"{series_id}/xhtml",
+                out_dir=OUT_DIR / "{series_id}/xhtml",
                 ruby="strip",
                 no_overwrite=True,
                 epub=False,
-                epub_out_dir=OUT_DIR/"{series_id}",
+                epub_out_dir=EPUB_DIR,
             )
             cmd_fetch(fetch_args)
         return
-    
+
     if args.epub:
         for series in bookmarks:
             print(f"\n#{series['id']:02d} {series['title']}\n")
-            series_id=series['series_id']
+            series_id = series["series_id"]
             epub_args = argparse.Namespace(
                 series=series_id,
                 delay=args.delay,
-                xhtml_dir=OUT_DIR/"{series_id}/xhtml",
-                out_dir=OUT_DIR/"{series_id}",
-                filename=""
+                xhtml_dir=OUT_DIR / "{series_id}/xhtml",
+                out_dir=EPUB_DIR,
+                filename="",
             )
             cmd_epub(epub_args)
         return
-    
+
     if args.check:
         for series in bookmarks:
             print(f"\n#{series['id']:02d} {series['title']}\n")
-            series_id=series['series_id']
-            check_args = argparse.Namespace(
-                series=series_id,
-                delay=args.delay                
-            )
+            series_id = series["series_id"]
+            check_args = argparse.Namespace(series=series_id, delay=args.delay)
             cmd_check(check_args)
         return
 
@@ -310,7 +307,8 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         print(f"\n#{series['id']:02d}")
         print(f"  Title:  {series['title']}")
         print(f"  Author:  {series['author']}")
-        print(f"  Series_id:  {series['series_id']}")
+        print(f"  Series ID:  {series['series_id']}")
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -342,10 +340,7 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_p.add_argument(
         "--chapters",
         metavar="SPEC",
-        help=(
-            "select the chapters you want to fetch, "
-            "examples: '1-7' or '1,3-5,7'"
-        ),
+        help=("select the chapters you want to fetch, examples: '1-7' or '1,3-5,7'"),
     )
     fetch_p.add_argument(
         "--out-dir",
@@ -365,9 +360,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     fetch_p.add_argument(
         "--epub-out-dir",
-        default=OUT_DIR / "{series_id}",
+        default=EPUB_DIR,
         metavar="DIR",
-        help="where to write the .epub file when using --epub",
+        help="where to write the epub file when using --epub",
     )
     fetch_p.set_defaults(func=cmd_fetch)
 
@@ -383,13 +378,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--xhtml-dir",
         default=OUT_DIR / "{series_id}/xhtml",
         metavar="DIR",
-        help="directory containing the .xhtml chapter files",
+        help="directory containing the xhtml chapter files",
     )
     epub_p.add_argument(
         "--out-dir",
-        default=OUT_DIR / "{series_id}",
+        default=EPUB_DIR,
         metavar="DIR",
-        help="where to write the .epub file",
+        help="where to write the epub file",
     )
     epub_p.add_argument(
         "--filename",
@@ -409,44 +404,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check_p.set_defaults(func=cmd_check)
 
-    bookmark_p = subparsers.add_parser(
-        "bookmark",
-        help="list your bookmarks"
-    )
+    bookmark_p = subparsers.add_parser("bookmark", help="list your bookmarks")
 
     group = bookmark_p.add_mutually_exclusive_group()
     group.add_argument(
         "--check",
         action="store_true",
-        help="check update for all the series on the bookmark list"
+        help="check update for all the series on the bookmark list",
     )
     group.add_argument(
-        "--fetch",
-        action="store_true",
-        help="fetch all the series on the bookmark list"
+        "--fetch", action="store_true", help="fetch all the series on the bookmark list"
     )
     group.add_argument(
         "--epub",
         action="store_true",
-        help="build epubs for all the series on the bookmark list"
+        help="build epubs for all the series on the bookmark list",
     )
     group.add_argument(
         "--delete",
         nargs="+",
         metavar="SERIES",
-        help="delete series from your bookmark list"
+        help="delete series from your bookmark list",
     )
     group.add_argument(
-        "--add",
-        nargs="+",
-        metavar="SERIES",
-        help="add series to your bookmark list"
+        "--add", nargs="+", metavar="SERIES", help="add series to your bookmark list"
     )
-
 
     bookmark_p.set_defaults(func=cmd_bookmark)
 
     return parser
+
 
 def main() -> None:
     parser = build_parser()
