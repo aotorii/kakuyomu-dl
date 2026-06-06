@@ -7,7 +7,7 @@ from ebooklib import epub
 
 from paths import OUT_DIR
 from scraper import TocEntry, WorkMeta
-from utils import generate_cover, parse_plural
+from utils import clean_title, generate_cover, parse_plural
 
 logger = logging.getLogger(__name__)
 
@@ -126,24 +126,26 @@ class EpubBuilder:
         xhtml_dir: str | Path = OUT_DIR / "{series_id}/xhtml",
         out_dir: str | Path = OUT_DIR / "{series_id}",
         filename: str | None = None,
+        clean: bool = False,
         language: str = "ja",
     ):
         self.xhtml_dir = Path(str(xhtml_dir).format(series_id=series_id))
         self.out_dir = Path(str(out_dir).format(series_id=series_id))
         self.filename = filename
+        self.clean = clean
         self.language = language
 
     def build(self, meta: WorkMeta, toc_entries: list[TocEntry]) -> Path:
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
         book = epub.EpubBook()
-
+        title = clean_title(meta.title, self.clean)
         book.set_identifier(f"kakuyomu-{meta.series_id}-{uuid.uuid4().hex[:8]}")
-        book.set_title(meta.title)
+        book.set_title(title)
         book.set_language(self.language)
         book.add_author(meta.author)
 
-        cover = generate_cover(meta.title, meta.author)
+        cover = generate_cover(title, meta.author)
         book.set_cover("image/cover.jpg", cover)
 
         if meta.description:
@@ -218,12 +220,10 @@ class EpubBuilder:
 
             def flush_section():
                 if current_section is not None and current_links:
-                    toc_nested.append(
-                        (
-                            epub.Section(current_section),
-                            tuple(current_links),
-                        )
-                    )
+                    toc_nested.append((
+                        epub.Section(current_section),
+                        tuple(current_links),
+                    ))
 
             for entry in toc_entries:
                 if entry.episode_id not in chapter_by_episode:
@@ -248,7 +248,7 @@ class EpubBuilder:
 
         book.spine = ["cover", "nav"] + epub_chapters
 
-        safe_title = _safe_filename(meta.title)
+        safe_title = _safe_filename(title)
         out_filename = self.filename or f"{safe_title}.epub"
         out_path = self.out_dir / out_filename
 

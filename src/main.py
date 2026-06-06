@@ -169,7 +169,10 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     if args.epub:
         print("\nBuilding EPUB…")
         builder = EpubBuilder(
-            series_id=series_id, xhtml_dir=writer.out_dir, out_dir=args.epub_out_dir
+            series_id=series_id,
+            xhtml_dir=writer.out_dir,
+            out_dir=args.epub_out_dir,
+            clean=args.epub_clean,
         )
         builder.build(meta, entries)
         print(f"Done. EPUB written to: {args.epub_out_dir}")
@@ -195,6 +198,7 @@ def cmd_epub(args: argparse.Namespace) -> None:
         xhtml_dir=str(args.xhtml_dir).format(series_id=series_id),
         out_dir=args.out_dir,
         filename=args.filename or None,
+        clean=args.clean,
     )
     builder.build(meta, entries)
     print(f"Done. EPUB written to: {args.out_dir}")
@@ -280,6 +284,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
                 no_overwrite=True,
                 epub=True,
                 epub_out_dir=EPUB_DIR,
+                epub_clean=True,
             )
             cmd_fetch(fetch_args)
         return
@@ -310,7 +315,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=1.0,
         metavar="SECONDS",
-        help="delay between HTTP requests",
+        help="delay between http requests",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -354,6 +359,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="where to write the epub file when using --epub",
     )
+    fetch_p.add_argument(
+        "--epub-clean",
+        action="store_true",
+        help="remove possible sale promotion in the novel title when using --epub",
+    )
     fetch_p.set_defaults(func=cmd_fetch)
 
     epub_p = subparsers.add_parser(
@@ -381,6 +391,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         metavar="NAME",
         help="override the output filename",
+    )
+    epub_p.add_argument(
+        "--clean",
+        action="store_true",
+        help="remove possible sale promotion in the novel title",
     )
     epub_p.set_defaults(func=cmd_epub)
 

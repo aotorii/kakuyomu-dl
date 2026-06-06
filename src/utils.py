@@ -1,4 +1,5 @@
 import io
+import re
 import textwrap
 
 import inflect
@@ -6,10 +7,16 @@ from PIL import Image, ImageDraw, ImageFont
 
 from paths import ASSETS_DIR
 
+PROMO_RE = re.compile(r"【[^】]*(発売|書籍化|連載)[^】]*】")
+
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:
     P = inflect.engine()
     return f"{num} {prefix}{P.plural_noun(noun, num)}"
+
+
+def clean_title(title: str, clean: bool) -> str:
+    return PROMO_RE.sub("", title).strip() if clean else title
 
 
 def generate_cover(
