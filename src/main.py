@@ -3,11 +3,11 @@ import json
 import logging
 import re
 import sys
-from parser import ChapterParser
 from pathlib import Path
 
 import cache
 from epub_builder import EpubBuilder
+from parser import EpisodeParser
 from paths import EPUB_DIR, OUT_DIR
 from scraper import KakuyomuScraper, TocEntry
 from utils import parse_plural
@@ -34,7 +34,7 @@ def parse_series_id(value: str) -> str:
     sys.exit(1)
 
 
-def parse_chapter_selection(spec: str, total: int) -> list[int]:
+def parse_episode_selection(spec: str, total: int) -> list[int]:
     indices: set[int] = set()
     for part in spec.split(","):
         part = part.strip()
@@ -48,7 +48,7 @@ def parse_chapter_selection(spec: str, total: int) -> list[int]:
     invalid = sorted(i for i in indices if i < 1 or i > total)
     if invalid:
         print(
-            f"[warning] Ignoring out-of-range chapter indices: {invalid}",
+            f"[warning] Ignoring out-of-range episode indices: {invalid}",
             file=sys.stderr,
         )
     return valid
@@ -59,19 +59,19 @@ def print_toc(entries: list[TocEntry]) -> None:
     print()
     last_category = object()
     locked_count = 0
-    for chapter in entries:
-        if chapter.category != last_category:
-            last_category = chapter.category
-            if chapter.category:
-                print(f"\n  [{chapter.category}]")
-        date = f"  ({chapter.published_on})" if chapter.published_on else ""
-        lock = " (locked)" if chapter.locked else ""
-        print(f"  {str(chapter.index).rjust(width)}  {chapter.title}{date}{lock}")
-        if chapter.locked:
+    for episode in entries:
+        if episode.category != last_category:
+            last_category = episode.category
+            if episode.category:
+                print(f"\n  [{episode.category}]")
+        date = f"  ({episode.published_on})" if episode.published_on else ""
+        lock = " (locked)" if episode.locked else ""
+        print(f"  {str(episode.index).rjust(width)}  {episode.title}{date}{lock}")
+        if episode.locked:
             locked_count += 1
     free = len(entries) - locked_count
     print(
-        f"\nTotal: {parse_plural('chapter', len(entries))} ({free} free, {locked_count} locked)"
+        f"\nTotal: {parse_plural('episode', len(entries))} ({free} free, {locked_count} locked)"
     )
 
 
@@ -88,7 +88,7 @@ def cmd_toc(args: argparse.Namespace) -> None:
 def cmd_fetch(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
     scraper = KakuyomuScraper(delay=args.delay)
-    parser = ChapterParser()
+    parser = EpisodeParser()
     writer = XhtmlWriter(
         series_id=series_id, out_dir=args.out_dir, overwrite=not args.no_overwrite
     )
@@ -98,7 +98,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     print(f"  Title:  {meta.title}")
     print(f"  Author: {meta.author}")
     print(
-        f"  {parse_plural('chapter', len(entries))} found ({sum(1 for chapter in entries if chapter.locked)} locked).\n"
+        f"  {parse_plural('episode', len(entries))} found ({sum(1 for episode in entries if episode.locked)} locked).\n"
     )
 
     old_apollo = cache.load(series_id)
@@ -112,25 +112,27 @@ def cmd_fetch(args: argparse.Namespace) -> None:
                 print(f"  + {title}")
         if result.has_update:
             print(
-                f"  {parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:"
+                f"{parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:"
             )
             for title, is_free in result.new_episode_titles:
                 lock = " (locked)" if not is_free else ""
                 print(f"  + {title}{lock}")
         else:
-            print("No new episodes since last fetch.\n")
+            print("No new episodes since last fetch.")
 
     cache.save(apollo, series_id)
 
-    if args.chapters:
-        indices = parse_chapter_selection(args.chapters, len(entries))
+    if args.episodes:
+        indices = parse_episode_selection(args.episodes, len(entries))
         if not indices:
-            print("[error] No valid chapters selected.", file=sys.stderr)
+            print("[error] No valid episodes selected.", file=sys.stderr)
             sys.exit(1)
-        print(f"\nFetching {parse_plural('chapter', len(indices))}: {indices}")
+        fetch = len(indices)
+        print(f"\nFetching {parse_plural('episode', fetch)}: {indices}")
     else:
         indices = None
-        print(f"\nFetching all {parse_plural('chapter', len(entries))}")
+        fetch = len(entries)
+        print(f"\nFetching all {parse_plural('episode', fetch)}...")
 
     if args.no_overwrite:
         out_dir = Path(str(args.out_dir).format(series_id=series_id))
@@ -148,26 +150,29 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         )
 
     if indices == []:
-        print(f"\nDone. 0 files written to '{writer.out_dir}'.")
-        return
-
-    raw_chapters = scraper.fetch_chapters(entries, indices=indices)
-    parsed = parser.parse_many(raw_chapters)
-    paths = writer.write_many(parsed)
-    suffix = ":" if paths else "."
-    print(
-        f"\nDone. {parse_plural('file', len(paths))} written to '{writer.out_dir}'{suffix}"
-    )
-    for p in paths:
-        print(f"  {p}")
+        print(
+            f"Done. All xhtml files already exist, 0 files written to '{writer.out_dir}'."
+        )
+    else:
+        raw_episodes = scraper.fetch_episodes(entries, indices=indices)
+        parsed = parser.parse_many(raw_episodes)
+        paths = writer.write_many(parsed)
+        exist = (
+            f"Skipped {parse_plural('file', fetch - len(paths), 'existing xhtml ')}, "
+            if indices
+            else ""
+        )
+        print(
+            f"Done. {exist}{parse_plural('file', len(paths))} written to '{writer.out_dir}'."
+        )
 
     if args.epub:
-        print("\nBuilding epub…")
+        print("\nBuilding EPUB…")
         builder = EpubBuilder(
             series_id=series_id, xhtml_dir=writer.out_dir, out_dir=args.epub_out_dir
         )
-        epub_path = builder.build(meta, entries)
-        print(f"epub written: {epub_path}")
+        builder.build(meta, entries)
+        print(f"Done. EPUB written to: {args.epub_out_dir}")
 
 
 def cmd_epub(args: argparse.Namespace) -> None:
@@ -182,17 +187,17 @@ def cmd_epub(args: argparse.Namespace) -> None:
     entries = scraper.parse_toc(apollo, series_id)
     print(f"  Title:  {meta.title}")
     print(f"  Author: {meta.author}")
-    print(f"  {parse_plural('chapter', len(entries))} in TOC.")
+    print(f"  {parse_plural('episode', len(entries))} in TOC.")
 
-    print("Building epub…")
+    print("\nBuilding EPUB…")
     builder = EpubBuilder(
         series_id=series_id,
         xhtml_dir=str(args.xhtml_dir).format(series_id=series_id),
         out_dir=args.out_dir,
         filename=args.filename or None,
     )
-    epub_path = builder.build(meta, entries)
-    print(f"Done. EPUB written: {epub_path}")
+    builder.build(meta, entries)
+    print(f"Done. EPUB written to: {args.out_dir}")
 
 
 def cmd_check(args: argparse.Namespace) -> None:
@@ -263,35 +268,20 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
             json.dump(bookmarks, f, ensure_ascii=False, indent=4)
         return
 
-    if args.fetch:
+    if args.update:
         for series in bookmarks:
             print(f"\n#{series['id']:02d} {series['title']}\n")
             series_id = series["series_id"]
             fetch_args = argparse.Namespace(
                 series=series_id,
                 delay=args.delay,
-                chapters=None,
+                episodes=None,
                 out_dir=OUT_DIR / "{series_id}/xhtml",
-                ruby="strip",
                 no_overwrite=True,
-                epub=False,
+                epub=True,
                 epub_out_dir=EPUB_DIR,
             )
             cmd_fetch(fetch_args)
-        return
-
-    if args.epub:
-        for series in bookmarks:
-            print(f"\n#{series['id']:02d} {series['title']}\n")
-            series_id = series["series_id"]
-            epub_args = argparse.Namespace(
-                series=series_id,
-                delay=args.delay,
-                xhtml_dir=OUT_DIR / "{series_id}/xhtml",
-                out_dir=EPUB_DIR,
-                filename="",
-            )
-            cmd_epub(epub_args)
         return
 
     if args.check:
@@ -325,22 +315,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    toc_p = subparsers.add_parser("toc", help="list all chapters for a novel")
+    toc_p = subparsers.add_parser("toc", help="list all episodes for a novel")
     toc_p.add_argument(
         "series",
         help="series ID or full kakuyomu url",
     )
     toc_p.set_defaults(func=cmd_toc)
 
-    fetch_p = subparsers.add_parser("fetch", help="fetch chapter content")
+    fetch_p = subparsers.add_parser("fetch", help="fetch episode content")
     fetch_p.add_argument(
         "series",
         help="series ID or full kakuyomu url",
     )
     fetch_p.add_argument(
-        "--chapters",
+        "--episodes",
         metavar="SPEC",
-        help=("select the chapters you want to fetch, examples: '1-7' or '1,3-5,7'"),
+        help=("select the episodes you want to fetch, examples: '1-7' or '1,3-5,7'"),
     )
     fetch_p.add_argument(
         "--out-dir",
@@ -351,12 +341,12 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_p.add_argument(
         "--no-overwrite",
         action="store_true",
-        help="skip chapters whose xhtml file already exists",
+        help="skip episodes whose xhtml file already exists",
     )
     fetch_p.add_argument(
         "--epub",
         action="store_true",
-        help="build an epub immediately after fetching chapters",
+        help="build an epub immediately after fetching episodes",
     )
     fetch_p.add_argument(
         "--epub-out-dir",
@@ -378,7 +368,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--xhtml-dir",
         default=OUT_DIR / "{series_id}/xhtml",
         metavar="DIR",
-        help="directory containing the xhtml chapter files",
+        help="directory containing the xhtml episode files",
     )
     epub_p.add_argument(
         "--out-dir",
@@ -413,12 +403,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="check update for all the series on the bookmark list",
     )
     group.add_argument(
-        "--fetch", action="store_true", help="fetch all the series on the bookmark list"
-    )
-    group.add_argument(
-        "--epub",
+        "--update",
         action="store_true",
-        help="build epubs for all the series on the bookmark list",
+        help="update all the series on the bookmark list",
     )
     group.add_argument(
         "--delete",

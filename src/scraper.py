@@ -17,9 +17,9 @@ BASE_URL = "https://kakuyomu.jp"
 WORK_URL = BASE_URL + "/works/{work_id}"
 EP_URL = BASE_URL + "/works/{work_id}/episodes/{episode_id}"
 
-CHAPTER_MAIN_TITLE_SELECTOR = "p.chapterTitle"
-CHAPTER_SUB_TITLE_SELECTOR = "p.widget-episodeTitle"
-CHAPTER_BODY_SELECTOR = "div.widget-episodeBody"
+CHAPTER_TITLE_SELECTOR = "p.chapterTitle"
+EPISODE_TITLE_SELECTOR = "p.widget-episodeTitle"
+EPISODE_BODY_SELECTOR = "div.widget-episodeBody"
 
 _DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
 
@@ -42,7 +42,7 @@ class RawParagraph:
 
 
 @dataclass
-class Chapter:
+class Episode:
     index: int
     title: str
     category: str
@@ -91,26 +91,32 @@ class KakuyomuScraper:
         apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
         meta = self.parse_work_meta(apollo, series_id, url)
         entries = self.parse_toc(apollo, series_id)
+        chapters = (
+            f"{parse_plural('chapter', len({e.category for e in entries if e.category}))}, "
+            if any(e.category for e in entries)
+            else ""
+        )
+        episode = f"{parse_plural('episode', len(entries))}"
 
-        logger.info(f"TOC done — {parse_plural('episode', len(entries))} found.")
+        logger.info(f"TOC done — {chapters}{episode} found.")
         return meta, entries, apollo
 
     def fetch_toc(self, series_id: str) -> list[TocEntry]:
         _, entries, _ = self.fetch_meta_and_toc(series_id)
         return entries
 
-    def fetch_chapter(self, entry: TocEntry) -> Chapter:
-        logger.info(f"Fetching chapter {entry.index}: {entry.title}")
+    def fetch_episode(self, entry: TocEntry) -> Episode:
+        logger.info(f"Fetching episode {entry.index}: {entry.title}")
         soup = self._get_soup(entry.url)
 
-        main_tag = soup.select_one(CHAPTER_MAIN_TITLE_SELECTOR)
+        main_tag = soup.select_one(CHAPTER_TITLE_SELECTOR)
         category = main_tag.get_text(strip=True) if main_tag else ""
 
-        sub_tag = soup.select_one(CHAPTER_SUB_TITLE_SELECTOR)
+        sub_tag = soup.select_one(EPISODE_TITLE_SELECTOR)
         raw_title = sub_tag.get_text(strip=True) if sub_tag else entry.title
         title = _strip_date(raw_title)
 
-        body_tag = soup.select_one(CHAPTER_BODY_SELECTOR)
+        body_tag = soup.select_one(EPISODE_BODY_SELECTOR)
         raw_paragraphs: list[RawParagraph] = []
         if body_tag:
             for p in body_tag.find_all("p"):
@@ -120,7 +126,7 @@ class KakuyomuScraper:
         else:
             logger.warning(f"Body not found for episode {entry.episode_id}")
 
-        return Chapter(
+        return Episode(
             index=entry.index,
             title=title,
             category=category or entry.category,
@@ -128,11 +134,11 @@ class KakuyomuScraper:
             raw_paragraphs=raw_paragraphs,
         )
 
-    def fetch_chapters(
+    def fetch_episodes(
         self,
         entries: list[TocEntry],
         indices: Optional[list[int]] = None,
-    ) -> list[Chapter]:
+    ) -> list[Episode]:
         targets = (
             [e for e in entries if e.index in indices]
             if indices is not None
@@ -142,12 +148,12 @@ class KakuyomuScraper:
         skip = [e for e in targets if e.locked]
         if skip:
             logger.info(f"Skipping {parse_plural('episode', len(skip), 'locked ')}")
-        chapters: list[Chapter] = []
+        episodes: list[Episode] = []
         for i, entry in enumerate(fetch):
             if i > 0:
                 time.sleep(self.delay)
-            chapters.append(self.fetch_chapter(entry))
-        return chapters
+            episodes.append(self.fetch_episode(entry))
+        return episodes
 
     # Extract the __NEXT_DATA__ JSON blob
     def parse_work_meta(self, apollo: dict, series_id: str, url: str) -> WorkMeta:

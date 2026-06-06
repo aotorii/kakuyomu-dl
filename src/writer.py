@@ -1,8 +1,8 @@
 import logging
-from parser import BlockType, ParsedChapter
 from pathlib import Path
 from string import Template
 
+from parser import BlockType, ParsedEpisode
 from paths import OUT_DIR
 
 logger = logging.getLogger(__name__)
@@ -49,12 +49,12 @@ class XhtmlWriter:
         self.filename_tmpl = filename_tmpl
         self.overwrite = overwrite
 
-    def write(self, chapter: ParsedChapter) -> Path:
+    def write(self, episode: ParsedEpisode) -> Path:
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
         filename = self.filename_tmpl.format(
-            index=chapter.index,
-            episode_id=chapter.episode_id,
+            index=episode.index,
+            episode_id=episode.episode_id,
         )
         path = self.out_dir / filename
 
@@ -62,27 +62,27 @@ class XhtmlWriter:
             logger.info(f"Skipping existing file: {path}")
             return path
 
-        xhtml = self._render(chapter)
+        xhtml = self._render(episode)
         path.write_text(xhtml, encoding="utf-8")
         logger.info(f"Wrote: {path}")
         return path
 
-    def write_many(self, chapters: list[ParsedChapter]) -> list[Path]:
-        return [self.write(ch) for ch in chapters]
+    def write_many(self, episodes: list[ParsedEpisode]) -> list[Path]:
+        return [self.write(ch) for ch in episodes]
 
-    def _render(self, chapter: ParsedChapter) -> str:
+    def _render(self, episode: ParsedEpisode) -> str:
         lines: list[str] = []
 
-        if chapter.category:
-            lines.append(CATEGORY_TEMPLATE.substitute(text=_escape(chapter.category)))
+        if episode.category:
+            lines.append(CATEGORY_TEMPLATE.substitute(text=_escape(episode.category)))
 
         lines.append(
             TITLE_TEMPLATE.substitute(
-                index=f"{chapter.index:03d}", text=_escape(chapter.title)
+                index=f"{episode.index:03d}", text=_escape(episode.title)
             )
         )
 
-        for block in chapter.blocks:
+        for block in episode.blocks:
             if block.type == BlockType.PARAGRAPH:
                 lines.append(f"<p>{block.text.replace('&', '&amp;')}</p>")
                 # lines.append(P_TEMPLATE.substitute(text=_escape(block.text)))
@@ -100,7 +100,7 @@ class XhtmlWriter:
         body_content = "\n".join(lines)
 
         return XHTML_TEMPLATE.substitute(
-            title=_escape(chapter.title),
+            title=_escape(episode.title),
             body_content=body_content,
         )
 

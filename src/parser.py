@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from scraper import Chapter, RawParagraph
+from scraper import Episode, RawParagraph
 
 
 class BlockType(Enum):
@@ -17,7 +17,7 @@ class Block:
 
 
 @dataclass
-class ParsedChapter:
+class ParsedEpisode:
     index: int
     episode_id: str
     title: str
@@ -33,14 +33,14 @@ _SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇�
 _DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
 
 
-class ChapterParser:
+class EpisodeParser:
     def __init__(self):
         pass
 
-    def parse(self, chapter: Chapter) -> ParsedChapter:
+    def parse(self, Episode: Episode) -> ParsedEpisode:
         blocks: list[Block] = []
 
-        for raw in chapter.raw_paragraphs:
+        for raw in Episode.raw_paragraphs:
             block = self._classify(raw)
             if block is None or (
                 block.type == BlockType.SCENE_BREAK
@@ -55,16 +55,16 @@ class ChapterParser:
         while blocks and blocks[-1].type == BlockType.SCENE_BREAK:
             blocks.pop()
 
-        return ParsedChapter(
-            index=chapter.index,
-            episode_id=chapter.episode_id,
-            title=self._clean_title(chapter.title),
-            category=chapter.category,
+        return ParsedEpisode(
+            index=Episode.index,
+            episode_id=Episode.episode_id,
+            title=self._clean_title(Episode.title),
+            category=Episode.category,
             blocks=blocks,
         )
 
-    def parse_many(self, chapters: list[Chapter]) -> list[ParsedChapter]:
-        return [self.parse(ch) for ch in chapters]
+    def parse_many(self, episodes: list[Episode]) -> list[ParsedEpisode]:
+        return [self.parse(ch) for ch in episodes]
 
     def _classify(self, raw: RawParagraph) -> Block | None:
         if raw.is_blank:
