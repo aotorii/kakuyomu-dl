@@ -7,7 +7,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 from paths import ASSETS_DIR
 
-PROMO_RE = re.compile(r"【[^】]*(発売|書籍化|連載)[^】]*】")
+PROMO_RE = re.compile(
+    r"【[^】]*(発売|書籍化|連載|コミカライズ|コミック|続刊|完結|受賞|大賞)[^】]*】"
+)
 
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:

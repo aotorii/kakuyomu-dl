@@ -126,13 +126,13 @@ class EpubBuilder:
         xhtml_dir: str | Path = OUT_DIR / "{series_id}/xhtml",
         out_dir: str | Path = OUT_DIR / "{series_id}",
         filename: str | None = None,
-        clean: bool = False,
+        clean_title: bool = False,
         language: str = "ja",
     ):
         self.xhtml_dir = Path(str(xhtml_dir).format(series_id=series_id))
         self.out_dir = Path(str(out_dir).format(series_id=series_id))
         self.filename = filename
-        self.clean = clean
+        self.clean = clean_title
         self.language = language
 
     def build(self, meta: WorkMeta, toc_entries: list[TocEntry]) -> Path:
