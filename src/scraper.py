@@ -1,7 +1,6 @@
 import copy
 import json
 import logging
-import re
 import time
 from dataclasses import dataclass, field
 from typing import Optional
@@ -9,19 +8,17 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup, Tag
 
-from utils import parse_plural
+from utils import BASE_URL, DATE_RE, parse_plural, strip_date
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://kakuyomu.jp"
-WORK_URL = BASE_URL + "/works/{work_id}"
-EP_URL = BASE_URL + "/works/{work_id}/episodes/{episode_id}"
+
+WORK_URL = BASE_URL + "{work_id}"
+EP_URL = BASE_URL + "{work_id}/episodes/{episode_id}"
 
 CHAPTER_TITLE_SELECTOR = "p.chapterTitle"
 EPISODE_TITLE_SELECTOR = "p.widget-episodeTitle"
 EPISODE_BODY_SELECTOR = "div.widget-episodeBody"
-
-_DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
 
 
 @dataclass
@@ -114,7 +111,7 @@ class KakuyomuScraper:
 
         sub_tag = soup.select_one(EPISODE_TITLE_SELECTOR)
         raw_title = sub_tag.get_text(strip=True) if sub_tag else entry.title
-        title = _strip_date(raw_title)
+        title = strip_date(raw_title)
 
         body_tag = soup.select_one(EPISODE_BODY_SELECTOR)
         raw_paragraphs: list[RawParagraph] = []
@@ -217,9 +214,9 @@ class KakuyomuScraper:
                 raw_title = ep_node.get("title", "") if ep_node else ""
                 published_at = ep_node.get("publishedAt", "") if ep_node else ""
 
-                date_match = _DATE_RE.search(raw_title)
+                date_match = DATE_RE.search(raw_title)
                 published_on = date_match.group(1) if date_match else published_at[:10]
-                title = _strip_date(raw_title)
+                title = strip_date(raw_title)
 
                 entries.append(
                     TocEntry(
@@ -259,7 +256,3 @@ class KakuyomuScraper:
         for rp in p.find_all("rp"):
             rp.decompose()
         return p.decode_contents()
-
-
-def _strip_date(title: str) -> str:
-    return _DATE_RE.sub("", title).strip()

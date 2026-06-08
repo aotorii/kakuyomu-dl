@@ -6,12 +6,11 @@ import sys
 from pathlib import Path
 
 import cache
-from config import BookmarkUpdateConfig, EpubConfig, FetchConfig
+from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
-from paths import OUT_DIR
 from scraper import KakuyomuScraper, TocEntry
-from utils import parse_plural
+from utils import BASE_URL, parse_plural
 from writer import XhtmlWriter
 
 logging.basicConfig(
@@ -20,8 +19,6 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
-BASE_URL = "https://kakuyomu.jp/works/"
 
 
 def parse_series_id(value: str) -> str:

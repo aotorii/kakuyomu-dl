@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from paths import OUT_DIR
+from config import OUT_DIR
 
 logger = logging.getLogger(__name__)
 

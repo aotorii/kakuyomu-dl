@@ -1,13 +1,12 @@
 import logging
-import re
 import uuid
 from pathlib import Path
 
 from ebooklib import epub
 
-from paths import OUT_DIR
+from config import OUT_DIR
 from scraper import TocEntry, WorkMeta
-from utils import clean_title, generate_cover, parse_plural
+from utils import clean_title, generate_cover, parse_plural, safe_filename
 
 logger = logging.getLogger(__name__)
 
@@ -248,16 +247,10 @@ class EpubBuilder:
 
         book.spine = ["cover", "nav"] + epub_chapters
 
-        safe_title = _safe_filename(title)
+        safe_title = safe_filename(title)
         out_filename = self.filename or f"{safe_title}.epub"
         out_path = self.out_dir / out_filename
 
         epub.write_epub(str(out_path), book)
         logger.info(f"EPUB written: {out_path}")
         return out_path
-
-
-def _safe_filename(title: str) -> str:
-    safe = re.sub(r'[\\/*?:"<>|]', "", title)
-    safe = safe.strip().replace(" ", "_")
-    return safe or "novel"

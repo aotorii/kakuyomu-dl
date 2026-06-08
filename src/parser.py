@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 
 from scraper import Episode, RawParagraph
+from utils import DATE_RE, SCENE_BREAK_RE
 
 
 class BlockType(Enum):
@@ -27,10 +28,6 @@ class ParsedEpisode:
     @property
     def paragraphs(self) -> list[str]:
         return [b.text for b in self.blocks if b.type == BlockType.PARAGRAPH]
-
-
-_SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇—―─·・…〜~＝=\-_]+$")
-_DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
 
 
 class EpisodeParser:
@@ -74,7 +71,7 @@ class EpisodeParser:
         if not cleaned:
             return None
 
-        if _SCENE_BREAK_RE.match(cleaned):
+        if SCENE_BREAK_RE.match(cleaned):
             is_pure_whitespace = not cleaned.strip()
             return Block(
                 type=BlockType.SCENE_BREAK,
@@ -93,6 +90,5 @@ class EpisodeParser:
         return prefix + rest
 
     def _clean_title(self, title: str) -> str:
-        title = _DATE_RE.sub("", title).strip()
-        # title = re.sub(r"^[【『](.+)[】』]$", r"\1", title)
+        title = DATE_RE.sub("", title).strip()
         return title

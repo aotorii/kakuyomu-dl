@@ -5,11 +5,14 @@ import textwrap
 import inflect
 from PIL import Image, ImageDraw, ImageFont
 
-from paths import ASSETS_DIR
+from config import ASSETS_DIR
 
+BASE_URL = "https://kakuyomu.jp/works/"
+DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
 PROMO_RE = re.compile(
     r"【[^】]*(発売|書籍化|連載|コミカライズ|コミック|続刊|完結|受賞|大賞)[^】]*】"
 )
+SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇—―─·・…〜~＝=\-_]+$")
 
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:
@@ -19,6 +22,19 @@ def parse_plural(noun: str, num: int, prefix: str = "") -> str:
 
 def clean_title(title: str, clean: bool) -> str:
     return PROMO_RE.sub("", title).strip() if clean else title
+
+
+def strip_date(title: str) -> str:
+    return DATE_RE.sub("", title).strip()
+
+
+def escape(text: str) -> str:
+    text = text.replace("&", "&amp;")
+    text = text.replace("<", "&lt;")
+    text = text.replace(">", "&gt;")
+    text = text.replace('"', "&quot;")
+    text = text.replace("'", "&apos;")
+    return text
 
 
 def generate_cover(
@@ -76,3 +92,9 @@ def generate_cover(
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=95)
     return buf.getvalue()
+
+
+def safe_filename(title: str) -> str:
+    safe = re.sub(r'[\\/*?:"<>|]', "", title)
+    safe = safe.strip().replace(" ", "_")
+    return safe or "novel"

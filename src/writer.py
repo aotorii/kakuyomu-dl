@@ -2,8 +2,9 @@ import logging
 from pathlib import Path
 from string import Template
 
+from config import OUT_DIR
 from parser import BlockType, ParsedEpisode
-from paths import OUT_DIR
+from utils import escape
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +30,8 @@ $body_content
 """)
 
 P_TEMPLATE = Template("<p>$text</p>")
-
 CATEGORY_TEMPLATE = Template('<p class="chapter-category">$text</p>')
-
 TITLE_TEMPLATE = Template('<h1 id="toc-$index" class="chapter-title">$text</h1>')
-
 BLANK_LINE = "<p><br/></p>"
 
 
@@ -74,11 +72,11 @@ class XhtmlWriter:
         lines: list[str] = []
 
         if episode.category:
-            lines.append(CATEGORY_TEMPLATE.substitute(text=_escape(episode.category)))
+            lines.append(CATEGORY_TEMPLATE.substitute(text=escape(episode.category)))
 
         lines.append(
             TITLE_TEMPLATE.substitute(
-                index=f"{episode.index:03d}", text=_escape(episode.title)
+                index=f"{episode.index:03d}", text=escape(episode.title)
             )
         )
 
@@ -91,7 +89,7 @@ class XhtmlWriter:
                 if block.text:
                     lines.append(BLANK_LINE)
                     lines.append(
-                        f'<p class="scene-break-deco">{_escape(block.text)}</p>'
+                        f'<p class="scene-break-deco">{escape(block.text)}</p>'
                     )
                     lines.append(BLANK_LINE)
                 else:
@@ -100,15 +98,6 @@ class XhtmlWriter:
         body_content = "\n".join(lines)
 
         return XHTML_TEMPLATE.substitute(
-            title=_escape(episode.title),
+            title=escape(episode.title),
             body_content=body_content,
         )
-
-
-def _escape(text: str) -> str:
-    text = text.replace("&", "&amp;")
-    text = text.replace("<", "&lt;")
-    text = text.replace(">", "&gt;")
-    text = text.replace('"', "&quot;")
-    text = text.replace("'", "&apos;")
-    return text
