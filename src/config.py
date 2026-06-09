@@ -1,14 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-
-ASSETS_DIR = ROOT / "assets"
-OUT_DIR = ROOT / "out"
-EPUB_DIR = OUT_DIR / "epub"
-
-OUT_DIR.mkdir(exist_ok=True)
-EPUB_DIR.mkdir(exist_ok=True)
+from utils import EPUB_DIR, OUT_DIR
 
 
 @dataclass

@@ -9,7 +9,7 @@ import cache
 from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
-from scraper import KakuyomuScraper, TocEntry
+from scraper import KakuyomuScraper, TocEntry, WorkMeta
 from utils import BASE_URL, display_title, parse_plural
 from writer import XhtmlWriter
 
@@ -73,6 +73,13 @@ def print_toc(entries: list[TocEntry]) -> None:
     )
 
 
+def print_meta(meta: WorkMeta) -> None:
+    print(f"  {'Title:':<8}{meta.title}")
+    print(f"  {'Author:':<8}{meta.author}")
+    print(f"  {'Status:':<8}{meta.status.capitalize()}")
+    print(f"  Total Character Count: {meta.character_count:,}")
+
+
 # Sub-commands
 
 
@@ -97,11 +104,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
 
     print("Fetching work metadata and table of contents…")
     meta, entries, apollo = scraper.fetch_meta_and_toc(series_id)
-    print(f"  Title:  {meta.title}")
-    print(f"  Author: {meta.author}")
-    print(
-        f"  {parse_plural('episode', len(entries))} found ({sum(1 for episode in entries if episode.locked)} locked)."
-    )
+    print_meta(meta)
 
     old_apollo = cache.load(series_id)
     if old_apollo:
@@ -134,7 +137,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     else:
         indices = None
         to_fetch = len(entries)
-        print(f"Fetching all {parse_plural('episode', to_fetch)}...")
+        print(f"Fetching all {parse_plural('episode', to_fetch)}…")
 
     if not overwrite:
         written_indices = [
@@ -157,7 +160,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         parsed = parser.parse_many(raw_episodes)
         paths = writer.write_many(parsed)
         exist = (
-            f"Skipped {parse_plural('file', to_fetch - len(paths), 'existing xhtml ')}, "
+            f"Skipped {parse_plural('file', to_fetch - len(paths) - sum(1 for episode in entries if episode.locked), 'existing xhtml ')}, "
             if indices
             else ""
         )
@@ -188,11 +191,18 @@ def cmd_epub(args: argparse.Namespace) -> None:
     clean_title = args.clean or config.clean_title
 
     print("Fetching work metadata and table of contents…")
+    if not apollo:
+        raise FileNotFoundError(
+            f"No matching toc cache found in '{OUT_DIR / series_id}' "
+            f"for work {series_id}. Run 'fetch' first."
+        )
     meta = scraper.parse_work_meta(apollo, series_id, BASE_URL + f"/{series_id}")
     entries = scraper.parse_toc(apollo, series_id)
-    print(f"  Title:  {meta.title}")
-    print(f"  Author: {meta.author}")
-    print(f"  {parse_plural('episode', len(entries))} in TOC.")
+    print(f"  {'Title:':<12}{meta.title}")
+    print(f"  {'Author:':<12}{meta.author}")
+    print(
+        f"  {parse_plural('episode', len(entries) - sum(1 for episode in entries if episode.locked), 'available ')} in TOC."
+    )
 
     print("\nBuilding EPUB…")
     builder = EpubBuilder(
@@ -253,10 +263,10 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
                 print(f"This series is already on your bookmark list: {meta.title}")
                 continue
             bookmark = {
-                "id": len(bookmarks) + 1,
                 "title": meta.title,
                 "author": meta.author,
                 "series_id": series_id,
+                "status": meta.status.capitalize(),
             }
             bookmarks.append(bookmark)
         with open(FILE, "w", encoding="utf-8") as f:
@@ -280,8 +290,8 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         epub_dir = Path(config.epub_dir)
         overwrite = config.overwrite
         clean_title = config.clean_title
-        for series in bookmarks:
-            title = f"#{series['id']:02d} {series['title']}"
+        for i, series in enumerate(bookmarks):
+            title = f"#{i + 1:02d} {series['title']}"
             print(f"\n{display_title(title)}\n")
             series_id = series["series_id"]
             fetch_args = argparse.Namespace(
@@ -298,20 +308,21 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         return
 
     if args.check:
-        for series in bookmarks:
-            title = f"#{series['id']:02d} {series['title']}"
+        for i, series in enumerate(bookmarks):
+            title = f"#{i + 1:02d} {series['title']}"
             print(f"\n{display_title(title)}\n")
             series_id = series["series_id"]
             check_args = argparse.Namespace(series=series_id, delay=args.delay)
             cmd_check(check_args)
         return
 
-    print(f"{len(bookmarks)} series found on bookmark list:")
-    for series in bookmarks:
-        print(f"\n#{series['id']:02d}")
-        print(f"  Title:  {series['title']}")
-        print(f"  Author:  {series['author']}")
-        print(f"  Series ID:  {series['series_id']}")
+    print(f"{len(bookmarks)} series found on the bookmark list:")
+    for i, series in enumerate(bookmarks):
+        print(f"\n#{i + 1:02d}")
+        print(f"  {'Title:':<12}{series['title']}")
+        print(f"  {'Author:':<12}{series['author']}")
+        print(f"  {'Series id:':<12}{series['series_id']}")
+        print(f"  {'Status:':<12}{series['status']}")
 
 
 def build_parser() -> argparse.ArgumentParser:

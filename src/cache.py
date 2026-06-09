@@ -73,6 +73,11 @@ def diff(old_state: dict, new_state: dict, series_id: str) -> UpdateResult:
     )
 
 
+def _get_status(apollo: dict, series_id: str) -> str | None:
+    work_node = apollo.get(f"Work:{series_id}", {})
+    return work_node.get("serialStatus")
+
+
 def _get_author_ref(apollo: dict, series_id: str) -> str | None:
     work_node = apollo.get(f"Work:{series_id}", {})
     return work_node.get("author", {}).get("__ref")

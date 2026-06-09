@@ -1,12 +1,11 @@
 import io
 import re
 import textwrap
+from pathlib import Path
 
 import inflect
 from PIL import Image, ImageDraw, ImageFont
 from wcwidth import wcswidth
-
-from config import ASSETS_DIR
 
 BASE_URL = "https://kakuyomu.jp/works/"
 DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
@@ -14,6 +13,16 @@ PROMO_RE = re.compile(
     r"【[^】]*(発売|書籍化|連載|コミカライズ|コミック|続刊|完結|受賞|大賞)[^】]*】"
 )
 SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇—―─·・…〜~＝=\-_]+$")
+
+
+ROOT = Path(__file__).resolve().parent.parent
+
+ASSETS_DIR = ROOT / "assets"
+OUT_DIR = ROOT / "out"
+EPUB_DIR = OUT_DIR / "epub"
+
+OUT_DIR.mkdir(exist_ok=True)
+EPUB_DIR.mkdir(exist_ok=True)
 
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:

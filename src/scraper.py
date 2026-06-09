@@ -33,6 +33,17 @@ class TocEntry:
 
 
 @dataclass
+class WorkMeta:
+    series_id: str
+    title: str
+    author: str
+    description: str
+    work_url: str
+    status: str
+    character_count: int
+
+
+@dataclass
 class RawParagraph:
     text: str
     is_blank: bool
@@ -45,15 +56,6 @@ class Episode:
     category: str
     episode_id: str
     raw_paragraphs: list[RawParagraph] = field(default_factory=list)
-
-
-@dataclass
-class WorkMeta:
-    series_id: str
-    title: str
-    author: str
-    description: str
-    work_url: str
 
 
 class KakuyomuScraper:
@@ -76,7 +78,8 @@ class KakuyomuScraper:
     def fetch_work_meta(self, series_id: str) -> WorkMeta:
         url = WORK_URL.format(work_id=series_id)
         data = self._fetch_next_data(url)
-        return self.parse_work_meta(data, series_id, url)
+        apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
+        return self.parse_work_meta(apollo, series_id, url)
 
     def fetch_meta_and_toc(
         self, series_id: str
@@ -88,14 +91,16 @@ class KakuyomuScraper:
         apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
         meta = self.parse_work_meta(apollo, series_id, url)
         entries = self.parse_toc(apollo, series_id)
-        chapters = (
+        chapter = (
             f"{parse_plural('chapter', len({e.category for e in entries if e.category}))}, "
             if any(e.category for e in entries)
             else ""
         )
         episode = f"{parse_plural('episode', len(entries))}"
+        locked_number = sum(1 for episode in entries if episode.locked)
+        lock = f" ({locked_number} locked)" if locked_number else ""
 
-        logger.info(f"TOC done — {chapters}{episode} found.")
+        logger.info(f"TOC done — {chapter}{episode} found{lock}.")
         return meta, entries, apollo
 
     def fetch_toc(self, series_id: str) -> list[TocEntry]:
@@ -144,7 +149,7 @@ class KakuyomuScraper:
         fetch = [e for e in targets if not e.locked]
         skip = [e for e in targets if e.locked]
         if skip:
-            logger.info(f"Skipping {parse_plural('episode', len(skip), 'locked ')}")
+            logger.info(f"Skipping {parse_plural('episode', len(skip), 'locked ')}…")
         episodes: list[Episode] = []
         for i, entry in enumerate(fetch):
             if i > 0:
@@ -152,7 +157,6 @@ class KakuyomuScraper:
             episodes.append(self.fetch_episode(entry))
         return episodes
 
-    # Extract the __NEXT_DATA__ JSON blob
     def parse_work_meta(self, apollo: dict, series_id: str, url: str) -> WorkMeta:
         work_key = f"Work:{series_id}"
         work_node = apollo.get(work_key, {})
@@ -165,6 +169,8 @@ class KakuyomuScraper:
             author = user_node.get("activityName") or user_node.get("name", "Unknown")
 
         description = work_node.get("introduction", "").strip()
+        status = work_node.get("serialStatus", "")
+        character_count = work_node.get("totalCharacterCount", 0)
 
         if not title:
             logger.warning("Work title not found in __NEXT_DATA__")
@@ -175,6 +181,8 @@ class KakuyomuScraper:
             author=author,
             description=description,
             work_url=url,
+            status=status,
+            character_count=character_count,
         )
 
     def parse_toc(self, apollo: dict, series_id: str) -> list[TocEntry]:
@@ -232,6 +240,7 @@ class KakuyomuScraper:
                 index += 1
         return entries
 
+    # Extract the __NEXT_DATA__ JSON blob
     def _fetch_next_data(self, url: str) -> dict:
         response = self.session.get(url, timeout=self.timeout)
         response.raise_for_status()

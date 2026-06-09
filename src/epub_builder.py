@@ -174,7 +174,10 @@ class EpubBuilder:
         for entry in toc_entries:
             xhtml_path = file_by_episode.get(entry.episode_id)
             if xhtml_path is None:
-                missing.append(f"[{entry.index}] {entry.title} ({entry.episode_id})")
+                if not entry.locked:
+                    missing.append(
+                        f"[{entry.index}] {entry.title} ({entry.episode_id})"
+                    )
                 continue
 
             chapter = epub.EpubHtml(
