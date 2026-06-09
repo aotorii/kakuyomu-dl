@@ -4,6 +4,7 @@ import textwrap
 
 import inflect
 from PIL import Image, ImageDraw, ImageFont
+from wcwidth import wcswidth
 
 from config import ASSETS_DIR
 
@@ -26,6 +27,15 @@ def clean_title(title: str, clean: bool) -> str:
 
 def strip_date(title: str) -> str:
     return DATE_RE.sub("", title).strip()
+
+
+def display_title(title: str) -> str:
+    space = 100 - wcswidth(title)
+    if space <= 0:
+        return title
+    left = space // 2
+    right = space - left
+    return "-" * left + title + "-" * right
 
 
 def escape(text: str) -> str:

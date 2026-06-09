@@ -10,7 +10,7 @@ from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
 from scraper import KakuyomuScraper, TocEntry
-from utils import BASE_URL, parse_plural
+from utils import BASE_URL, display_title, parse_plural
 from writer import XhtmlWriter
 
 logging.basicConfig(
@@ -237,7 +237,7 @@ def cmd_check(args: argparse.Namespace) -> None:
 
 
 def cmd_bookmark(args: argparse.Namespace) -> None:
-    FILE = OUT_DIR / "bookmark.json"
+    FILE = OUT_DIR / "bookmarks.json"
     try:
         with open(FILE, "r", encoding="utf-8") as f:
             bookmarks = json.load(f)
@@ -282,7 +282,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         clean_title = config.clean_title
         for series in bookmarks:
             title = f"#{series['id']:02d} {series['title']}"
-            print(f"\n{title:-^90}\n")
+            print(f"\n{display_title(title)}\n")
             series_id = series["series_id"]
             fetch_args = argparse.Namespace(
                 series=series_id,
@@ -299,7 +299,8 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
 
     if args.check:
         for series in bookmarks:
-            print(f"\n#{series['id']:02d} {series['title']}\n")
+            title = f"#{series['id']:02d} {series['title']}"
+            print(f"\n{display_title(title)}\n")
             series_id = series["series_id"]
             check_args = argparse.Namespace(series=series_id, delay=args.delay)
             cmd_check(check_args)

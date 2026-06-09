@@ -3,3 +3,4 @@ ebooklib==0.20
 inflect==7.5.0
 Pillow==10.4.0
 Requests==2.31.0
+wcwidth==0.2.13
