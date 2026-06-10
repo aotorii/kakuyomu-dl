@@ -28,3 +28,4 @@ class BookmarkUpdateConfig:
     epub_dir: str | Path = EPUB_DIR
     overwrite = False
     clean_title = True
+    skip_completed = True

@@ -80,6 +80,27 @@ def print_meta(meta: WorkMeta) -> None:
     print(f"  Total Character Count: {meta.character_count:,}")
 
 
+def fetch_config_init(config: FetchConfig, args: argparse.Namespace) -> FetchConfig:
+    config.overwrite = not args.no_overwrite and config.overwrite
+    config.build_epub = args.epub or config.build_epub
+    config.clean_title = args.epub_clean or config.clean_title
+    config.out_dir = Path(args.out_dir or config.out_dir)
+    config.epub_out_dir = Path(args.epub_out_dir or config.epub_out_dir)
+    return config
+
+
+def epub_config_init(config: EpubConfig, args: argparse.Namespace) -> EpubConfig:
+    config.xhtml_dir = Path(args.xhtml_dir or config.xhtml_dir)
+    config.out_dir = Path(args.out_dir or config.out_dir)
+    config.clean_title = args.clean or config.clean_title
+
+
+def bookmark_config_init(config: BookmarkUpdateConfig) -> BookmarkUpdateConfig:
+    config.xhtml_dir = Path(config.xhtml_dir)
+    config.epub_dir = Path(config.epub_dir)
+    return config
+
+
 # Sub-commands
 
 
@@ -92,15 +113,13 @@ def cmd_toc(args: argparse.Namespace) -> None:
 
 def cmd_fetch(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
-    config = FetchConfig()
-    overwrite = not args.no_overwrite and config.overwrite
-    build_epub = args.epub or config.build_epub
-    clean_title = args.epub_clean or config.clean_title
-    out_dir = Path(args.out_dir or config.out_dir) / series_id / "xhtml"
-    epub_out_dir = Path(args.epub_out_dir or config.epub_out_dir)
+    config = fetch_config_init(FetchConfig(), args)
     scraper = KakuyomuScraper(delay=args.delay)
     parser = EpisodeParser()
-    writer = XhtmlWriter(series_id=series_id, out_dir=out_dir, overwrite=overwrite)
+    xhtml_dir = config.out_dir / series_id / "xhtml"
+    writer = XhtmlWriter(
+        series_id=series_id, out_dir=xhtml_dir, overwrite=config.overwrite
+    )
 
     print("Fetching work metadata and table of contents…")
     meta, entries, apollo = scraper.fetch_meta_and_toc(series_id)
@@ -139,10 +158,10 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         to_fetch = len(entries)
         print(f"Fetching all {parse_plural('episode', to_fetch)}…")
 
-    if not overwrite:
+    if not config.overwrite:
         written_indices = [
             int(xhtml.stem.split("_")[0])
-            for xhtml in (out_dir.glob("*.xhtml") if out_dir.exists() else [])
+            for xhtml in (xhtml_dir.glob("*.xhtml") if xhtml_dir.exists() else [])
         ]
         entries_indices = [entry.index for entry in entries]
         indices = (
@@ -152,9 +171,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         )
 
     if indices == []:
-        print(
-            f"Done. All xhtml files already exist, 0 files written to '{writer.out_dir}'."
-        )
+        print(f"Done. All xhtml files already exist, 0 files written to '{xhtml_dir}'.")
     else:
         raw_episodes = scraper.fetch_episodes(entries, indices=indices)
         parsed = parser.parse_many(raw_episodes)
@@ -165,30 +182,28 @@ def cmd_fetch(args: argparse.Namespace) -> None:
             else ""
         )
         print(
-            f"Done. {exist}{parse_plural('file', len(paths))} written to '{writer.out_dir}'."
+            f"Done. {exist}{parse_plural('file', len(paths))} written to '{xhtml_dir}'."
         )
 
-    if build_epub:
+    if config.build_epub:
         print("Building EPUB…")
         builder = EpubBuilder(
             series_id=series_id,
-            xhtml_dir=writer.out_dir,
-            out_dir=epub_out_dir,
-            clean_title=clean_title,
+            xhtml_dir=xhtml_dir,
+            out_dir=config.epub_out_dir,
+            clean_title=config.clean_title,
         )
         builder.build(meta, entries)
-        print(f"Done. EPUB written to: {epub_out_dir}")
+        print(f"Done. EPUB written to: {config.epub_out_dir}")
 
 
 def cmd_epub(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
     scraper = KakuyomuScraper(delay=args.delay)
     apollo = cache.load(series_id)
-    config = EpubConfig()
-    xhtml_dir = Path(args.xhtml_dir or config.xhtml_dir) / series_id / "xhtml"
-    out_dir = Path(args.out_dir or config.out_dir)
+    config = epub_config_init(EpubConfig(), args)
+    xhtml_dir = config.xhtml_dir / series_id / "xhtml"
     filename = args.filename or None
-    clean_title = args.clean or config.clean_title
 
     print("Fetching work metadata and table of contents…")
     if not apollo:
@@ -196,7 +211,8 @@ def cmd_epub(args: argparse.Namespace) -> None:
             f"No matching toc cache found in '{OUT_DIR / series_id}' "
             f"for work {series_id}. Run 'fetch' first."
         )
-    meta = scraper.parse_work_meta(apollo, series_id, BASE_URL + f"/{series_id}")
+    url = BASE_URL + f"/{series_id}"
+    meta = scraper.parse_work_meta(apollo, series_id, url)
     entries = scraper.parse_toc(apollo, series_id)
     print(f"  {'Title:':<12}{meta.title}")
     print(f"  {'Author:':<12}{meta.author}")
@@ -208,12 +224,12 @@ def cmd_epub(args: argparse.Namespace) -> None:
     builder = EpubBuilder(
         series_id=series_id,
         xhtml_dir=xhtml_dir,
-        out_dir=out_dir,
+        out_dir=config.out_dir,
         filename=filename,
-        clean_title=clean_title,
+        clean_title=config.clean_title,
     )
     builder.build(meta, entries)
-    print(f"Done. EPUB written to: {out_dir}")
+    print(f"Done. EPUB written to: {config.out_dir}")
 
 
 def cmd_check(args: argparse.Namespace) -> None:
@@ -285,11 +301,14 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         return
 
     if args.update:
-        config = BookmarkUpdateConfig()
-        xhtml_dir = Path(config.xhtml_dir)
-        epub_dir = Path(config.epub_dir)
-        overwrite = config.overwrite
-        clean_title = config.clean_title
+        config = bookmark_config_init(BookmarkUpdateConfig())
+        if config.skip_completed:
+            print(
+                "Will skip completed series, use 'check' to check if there is any update for them. You can edit the config file to change the setting."
+            )
+            bookmarks = [
+                series for series in bookmarks if series["status"] != "Completed"
+            ]
         for i, series in enumerate(bookmarks):
             title = f"#{i + 1:02d} {series['title']}"
             print(f"\n{display_title(title)}\n")
@@ -298,11 +317,11 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
                 series=series_id,
                 delay=args.delay,
                 episodes=None,
-                out_dir=xhtml_dir,
-                no_overwrite=not overwrite,
+                out_dir=config.xhtml_dir,
+                no_overwrite=not config.overwrite,
                 epub=True,
-                epub_out_dir=epub_dir,
-                epub_clean=clean_title,
+                epub_out_dir=config.epub_dir,
+                epub_clean=config.clean_title,
             )
             cmd_fetch(fetch_args)
         return
