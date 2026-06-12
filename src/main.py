@@ -10,7 +10,7 @@ from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
 from scraper import KakuyomuScraper, TocEntry, WorkMeta
-from utils import BASE_URL, display_title, parse_plural
+from utils import BASE_URL, display_date, display_title, parse_plural
 from writer import XhtmlWriter
 
 logging.basicConfig(
@@ -74,10 +74,18 @@ def print_toc(entries: list[TocEntry]) -> None:
 
 
 def print_meta(meta: WorkMeta) -> None:
-    print(f"  {'Title:':<8}{meta.title}")
-    print(f"  {'Author:':<8}{meta.author}")
-    print(f"  {'Status:':<8}{meta.status.capitalize()}")
-    print(f"  Total Character Count: {meta.character_count:,}")
+    line = [
+        ("Title", f"{meta.title}"),
+        ("Author", f"{meta.author}"),
+        ("Status", f"{meta.status.capitalize()}"),
+        ("Publish date", f"{display_date(meta.published)}"),
+        ("Last episode on", f"{display_date(meta.last_episode)}"),
+        ("Last edited on", f"{display_date(meta.last_edited)}"),
+        ("Total character count", f"{meta.character_count:,}"),
+    ]
+    width = max(len(key) for key, _ in line)
+    for key, value in line:
+        print(f"  {key:<{width}}   {value}")
 
 
 def fetch_config_init(config: FetchConfig, args: argparse.Namespace) -> FetchConfig:
@@ -93,6 +101,7 @@ def epub_config_init(config: EpubConfig, args: argparse.Namespace) -> EpubConfig
     config.xhtml_dir = Path(args.xhtml_dir or config.xhtml_dir)
     config.out_dir = Path(args.out_dir or config.out_dir)
     config.clean_title = args.clean or config.clean_title
+    return config
 
 
 def bookmark_config_init(config: BookmarkUpdateConfig) -> BookmarkUpdateConfig:
@@ -214,8 +223,9 @@ def cmd_epub(args: argparse.Namespace) -> None:
     url = BASE_URL + f"/{series_id}"
     meta = scraper.parse_work_meta(apollo, series_id, url)
     entries = scraper.parse_toc(apollo, series_id)
-    print(f"  {'Title:':<12}{meta.title}")
-    print(f"  {'Author:':<12}{meta.author}")
+    print(f"  {'Title':<12}{meta.title}")
+    print(f"  {'Author':<12}{meta.author}")
+    print(f"  {'Status':<12}{meta.status.capitalize()}")
     print(
         f"  {parse_plural('episode', len(entries) - sum(1 for episode in entries if episode.locked), 'available ')} in TOC."
     )
@@ -245,6 +255,10 @@ def cmd_check(args: argparse.Namespace) -> None:
     _, _, new_apollo = scraper.fetch_meta_and_toc(series_id)
 
     result = cache.diff(old_apollo, new_apollo, series_id)
+    if result.meta_updated:
+        print(
+            "The workmeta (title, tags, description, etc.) may has been edited since last fetch. Use 'fetch' to update the meta."
+        )
     if result.has_new_unlocked:
         print(
             f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:"
@@ -304,7 +318,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         config = bookmark_config_init(BookmarkUpdateConfig())
         if config.skip_completed:
             print(
-                "Will skip completed series, use 'check' to check if there is any update for them. You can edit the config file to change the setting."
+                "Will skip completed series. Use 'check' to check if there is any update for them. You can edit the config file to change the setting."
             )
             bookmarks = [
                 series for series in bookmarks if series["status"] != "Completed"

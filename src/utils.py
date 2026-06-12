@@ -1,6 +1,7 @@
 import io
 import re
 import textwrap
+from datetime import datetime
 from pathlib import Path
 
 import inflect
@@ -36,6 +37,11 @@ def clean_title(title: str, clean: bool) -> str:
 
 def strip_date(title: str) -> str:
     return DATE_RE.sub("", title).strip()
+
+
+def display_date(time: str) -> str:
+    dt = datetime.fromisoformat(time.replace("Z", "+00:00"))
+    return f"{dt:%Y-%m-%d}"
 
 
 def display_title(title: str) -> str:

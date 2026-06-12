@@ -41,6 +41,9 @@ class WorkMeta:
     work_url: str
     status: str
     character_count: int
+    published: str
+    last_episode: str
+    last_edited: str
 
 
 @dataclass
@@ -171,6 +174,9 @@ class KakuyomuScraper:
         description = work_node.get("introduction", "").strip()
         status = work_node.get("serialStatus", "")
         character_count = work_node.get("totalCharacterCount", 0)
+        published = work_node.get("publishedAt", "")
+        last_episode = work_node.get("lastEpisodePublishedAt", "")
+        last_edited = work_node.get("editedAt", "")
 
         if not title:
             logger.warning("Work title not found in __NEXT_DATA__")
@@ -183,6 +189,9 @@ class KakuyomuScraper:
             work_url=url,
             status=status,
             character_count=character_count,
+            published=published,
+            last_episode=last_episode,
+            last_edited=last_edited,
         )
 
     def parse_toc(self, apollo: dict, series_id: str) -> list[TocEntry]:

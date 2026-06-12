@@ -1,6 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from config import OUT_DIR
@@ -19,6 +20,7 @@ class UpdateResult:
     old_count: int
     new_count: int
     new_unlocked: list[str]
+    meta_updated: bool
 
 
 def cache_path(series_id: str, base_dir: str | Path = OUT_DIR) -> Path:
@@ -62,6 +64,9 @@ def diff(old_state: dict, new_state: dict, series_id: str) -> UpdateResult:
         if ep_id not in free_episodes and is_free
     ]
 
+    old_edited, _ = _get_edited_time(old_state, series_id)
+    new_edited, new_last_ep = _get_edited_time(new_state, series_id)
+
     return UpdateResult(
         has_update=bool(added),
         has_new_unlocked=bool(new_unlocked),
@@ -70,17 +75,27 @@ def diff(old_state: dict, new_state: dict, series_id: str) -> UpdateResult:
         old_count=len(old_episodes),
         new_count=len(new_episodes),
         new_unlocked=new_unlocked,
+        meta_updated=old_edited < new_edited and new_last_ep < new_edited,
     )
-
-
-def _get_status(apollo: dict, series_id: str) -> str | None:
-    work_node = apollo.get(f"Work:{series_id}", {})
-    return work_node.get("serialStatus")
 
 
 def _get_author_ref(apollo: dict, series_id: str) -> str | None:
     work_node = apollo.get(f"Work:{series_id}", {})
     return work_node.get("author", {}).get("__ref")
+
+
+def _get_edited_time(apollo: dict, series_id: str) -> tuple[datetime, datetime]:
+    work_node = apollo.get(f"Work:{series_id}", {})
+    edited = work_node.get("editedAt", "")
+    last_episode = work_node.get("lastEpisodePublishedAt", "")
+    return (
+        datetime.fromisoformat(edited.replace("Z", "+00:00"))
+        if edited
+        else datetime.fromtimestamp(0, timezone.utc),
+        datetime.fromisoformat(last_episode.replace("Z", "+00:00"))
+        if last_episode
+        else datetime.fromtimestamp(0, timezone.utc),
+    )
 
 
 def _filter_apollo(apollo: dict, series_id: str) -> dict:
