@@ -138,9 +138,28 @@ def generate_cover(
 def generate_colophon(meta: WorkMeta, clean: bool = False, lang: str = "ja") -> bytes:
     status = "完結済" if meta.status == "COMPLETED" else "連載中"
     title = clean_title(meta.title, clean)
+    line = [
+        ("執筆状況", f"{status}"),
+        ("エピソード", f"{meta.episode_count}話"),
+        ("総文字数", f"{meta.character_count:,}文字"),
+        ("公開日", f"{meta.published}"),
+        ("最終更新日", f"{meta.last_edited}"),
+    ]
+    info = '<table style="border-collapse: collapse; line-height: 2;">'
+    for key, value in line:
+        info += (
+            '<tr><td style="padding-right: 2em;">'
+            + key
+            + "</td><td>"
+            + value
+            + "</td></tr>"
+        )
+    info += "</table>"
     html = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{lang}">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{
+        lang
+    }">
 <head>
 <meta charset="UTF-8"/>
 <title>奥付</title>
@@ -150,11 +169,7 @@ def generate_colophon(meta: WorkMeta, clean: bool = False, lang: str = "ja") -> 
   <p style="font-size: 1.2em; font-weight: bold;">{title}</p>
   <p style="font-size: 0.9em;">{meta.author}</p>
   <hr/>
-  <p>執筆状況：{status}</p>
-  <p>エピソード：{meta.episode_count}話</p>
-  <p>総文字数：{meta.character_count:,}文字</p>
-  <p>公開日：{meta.published}</p>
-  <p>最終更新日：{meta.last_edited}</p>
+  {info}
   <p><a href="{meta.work_url}">{meta.work_url}</a></p>
 </div>
 </body>
