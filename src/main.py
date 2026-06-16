@@ -10,7 +10,7 @@ from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
 from scraper import KakuyomuScraper, TocEntry, WorkMeta
-from utils import BASE_URL, display_date, display_title, parse_plural
+from utils import display_date, display_title, parse_plural
 from writer import XhtmlWriter
 
 logging.basicConfig(
@@ -220,8 +220,7 @@ def cmd_epub(args: argparse.Namespace) -> None:
             f"No matching toc cache found in '{OUT_DIR / series_id}' "
             f"for work {series_id}. Run 'fetch' first."
         )
-    url = BASE_URL + f"/{series_id}"
-    meta = scraper.parse_work_meta(apollo, series_id, url)
+    meta = scraper.parse_work_meta(apollo, series_id)
     entries = scraper.parse_toc(apollo, series_id)
     print(f"  {'Title':<12}{meta.title}")
     print(f"  {'Author':<12}{meta.author}")

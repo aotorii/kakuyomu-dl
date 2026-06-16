@@ -1,6 +1,7 @@
 import io
 import re
 import textwrap
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -24,6 +25,21 @@ EPUB_DIR = OUT_DIR / "epub"
 
 OUT_DIR.mkdir(exist_ok=True)
 EPUB_DIR.mkdir(exist_ok=True)
+
+
+@dataclass
+class WorkMeta:
+    series_id: str
+    title: str
+    author: str
+    description: str
+    work_url: str
+    status: str
+    character_count: int
+    episode_count = int
+    published: str
+    last_episode: str
+    last_edited: str
 
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:
@@ -117,6 +133,67 @@ def generate_cover(
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=95)
     return buf.getvalue()
+
+
+def generate_colophon(meta: WorkMeta, clean: bool = False, lang: str = "ja") -> bytes:
+    status = "完結済" if meta.status == "COMPLETED" else "連載中"
+    title = clean_title(meta.title, clean)
+    html = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{lang}">
+<head>
+<meta charset="UTF-8"/>
+<title>奥付</title>
+</head>
+<body style="font-family: serif; padding: 3em; line-height: 2;">
+<div style="max-width: 36em; margin: 6em auto;">
+  <p style="font-size: 1.2em; font-weight: bold;">{title}</p>
+  <p style="font-size: 0.9em;">{meta.author}</p>
+  <hr/>
+  <p>執筆状況：{status}</p>
+  <p>エピソード：{meta.episode_count}話</p>
+  <p>総文字数：{meta.character_count:,}文字</p>
+  <p>公開日：{meta.published}</p>
+  <p>最終更新日：{meta.last_edited}</p>
+  <p><a href="{meta.work_url}">{meta.work_url}</a></p>
+</div>
+</body>
+</html>"""
+    return html.encode("utf-8")
+
+
+# def generate_colophon(
+#     title: str, author: str, work_url: str, lang: str = "ja"
+# ) -> bytes:
+#     html = f"""<?xml version="1.0" encoding="UTF-8"?>
+# <!DOCTYPE html>
+# <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{lang}">
+# <head>
+# <meta charset="UTF-8"/>
+# <title>奥付</title>
+# <link rel="stylesheet" type="text/css" href="style/colophon.css"/>
+# </head>
+# <body class="p-colophon">
+# <div class="main">
+
+#   <div class="book-title">
+#     <p class="colophon-title">{title}</p>
+#     <p class="colophon-author">{author}</p>
+#   </div>
+
+#   <div class="colophon-meta">
+#     <p>取得</p>
+#   </div>
+
+#   <div class="colophon-source">
+#     <p>出典：カクヨム</p>
+#     <p><a href="{work_url}">{work_url}</a></p>
+#   </div>
+
+# </div>
+# </body>
+# </html>"""
+#     return html.encode("utf-8")
 
 
 def safe_filename(title: str) -> str:

@@ -19,7 +19,7 @@ class FetchConfig:
 class EpubConfig:
     xhtml_dir: str | Path = OUT_DIR
     out_dir: str | Path = EPUB_DIR
-    clean_title: bool = True
+    clean_title: bool = False
 
 
 @dataclass

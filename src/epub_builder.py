@@ -6,7 +6,13 @@ from ebooklib import epub
 
 from config import OUT_DIR
 from scraper import TocEntry, WorkMeta
-from utils import clean_title, generate_cover, parse_plural, safe_filename
+from utils import (
+    clean_title,
+    generate_colophon,
+    generate_cover,
+    parse_plural,
+    safe_filename,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +29,8 @@ body.p-text {
   line-height: 1.8;
   color: #1a1a1a;
   background-color: #fdfbf7;
+  text-align: justify;
+  text-justify: inter-ideograph;
   margin: 0;
   padding: 0;
   -webkit-text-size-adjust: 100%;
@@ -46,6 +54,8 @@ p.chapter-category {
 }
 
 h1.chapter-title {
+  page-break-after: avoid;
+  break-after: avoid;
   font-size: 1.15em;
   font-weight: bold;
   line-height: 1.5;
@@ -117,6 +127,78 @@ div.page-break {
 }
 """
 
+# COLOPHON_CSS = """\
+# @charset "UTF-8";
+
+# html {
+#   font-size: 100%;
+# }
+
+# body {
+#   font-family: "Yu Mincho", "MS Mincho", serif;
+#   font-size: 1em;
+#   line-height: 1.8;
+#   color: #1a1a1a;
+#   background-color: #fdfbf7;
+#   margin: 0;
+#   padding: 0;
+# }
+
+# div.main {
+#   max-width: 36em;
+#   margin: 6em auto;
+#   padding: 0 1.5em;
+# }
+
+# p {
+#   margin: 0;
+#   padding: 0;
+#   text-indent: 0;
+# }
+
+# div.book-title {
+#   margin-bottom: 2em;
+#   padding-bottom: 1em;
+#   border-bottom: 1px solid #c8b89a;
+# }
+
+# p.colophon-title {
+#   font-size: 1.15em;
+#   font-weight: bold;
+#   letter-spacing: 0.05em;
+#   line-height: 1.5;
+# }
+
+# p.colophon-author {
+#   font-size: 0.78em;
+#   color: #444;
+#   margin-top: 0.5em;
+# }
+
+# div.colophon-meta {
+#   margin-top: 2em;
+#   font-size: 0.85em;
+#   color: #666;
+# }
+
+# div.colophon-meta p {
+#   margin-bottom: 0.3em;
+# }
+
+# a {
+#   color: #0099cc;
+#   text-decoration: none;
+# }
+
+# div.colophon-source {
+#   margin-top: 2em;
+#   padding-top: 1em;
+#   border-top: 1px solid #c8b89a;
+#   font-size: 0.8em;
+#   color: #888;
+# }
+# """
+
 
 class EpubBuilder:
     def __init__(
@@ -159,6 +241,14 @@ class EpubBuilder:
             content=DEFAULT_CSS.encode("utf-8"),
         )
         book.add_item(css)
+
+        # colophon_css = epub.EpubItem(
+        #     uid="style_colophon",
+        #     file_name="style/colophon.css",
+        #     media_type="text/css",
+        #     content=COLOPHON_CSS.encode("utf-8"),
+        # )
+        # book.add_item(colophon_css)
 
         file_by_episode: dict[str, Path] = {}
         for xhtml_path in self.xhtml_dir.glob("*.xhtml"):
@@ -245,10 +335,23 @@ class EpubBuilder:
             flush_section()
             book.toc = tuple(toc_nested)
 
+        colophon = epub.EpubHtml(
+            uid="colophon",
+            title="奥付",
+            file_name="text/colophon.xhtml",
+            lang=self.language,
+        )
+        print(meta.work_url)
+        colophon.content = generate_colophon(meta, self.clean)
+        # colophon.add_item(colophon_css)
+        book.add_item(colophon)
+        book.toc = book.toc + (epub.Link("text/colophon.xhtml", "奥付", "colophon"),)
+
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
 
-        book.spine = ["cover", "nav"] + epub_chapters
+        # book.spine = ["cover", "nav"] + epub_chapters
+        book.spine = ["cover", "nav"] + epub_chapters + [colophon]
 
         safe_title = safe_filename(title)
         out_filename = self.filename or f"{safe_title}.epub"

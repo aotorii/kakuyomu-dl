@@ -41,6 +41,7 @@ class WorkMeta:
     work_url: str
     status: str
     character_count: int
+    episode_count: int
     published: str
     last_episode: str
     last_edited: str
@@ -82,7 +83,7 @@ class KakuyomuScraper:
         url = WORK_URL.format(work_id=series_id)
         data = self._fetch_next_data(url)
         apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
-        return self.parse_work_meta(apollo, series_id, url)
+        return self.parse_work_meta(apollo, series_id)
 
     def fetch_meta_and_toc(
         self, series_id: str
@@ -92,7 +93,7 @@ class KakuyomuScraper:
         data = self._fetch_next_data(url)
 
         apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
-        meta = self.parse_work_meta(apollo, series_id, url)
+        meta = self.parse_work_meta(apollo, series_id)
         entries = self.parse_toc(apollo, series_id)
         chapter = (
             f"{parse_plural('chapter', len({e.category for e in entries if e.category}))}, "
@@ -160,7 +161,8 @@ class KakuyomuScraper:
             episodes.append(self.fetch_episode(entry))
         return episodes
 
-    def parse_work_meta(self, apollo: dict, series_id: str, url: str) -> WorkMeta:
+    def parse_work_meta(self, apollo: dict, series_id: str) -> WorkMeta:
+        url = WORK_URL.format(work_id=series_id)
         work_key = f"Work:{series_id}"
         work_node = apollo.get(work_key, {})
         title = work_node.get("title", f"Work {series_id}")
@@ -174,6 +176,7 @@ class KakuyomuScraper:
         description = work_node.get("introduction", "").strip()
         status = work_node.get("serialStatus", "")
         character_count = work_node.get("totalCharacterCount", 0)
+        episode_count = work_node.get("publicEpisodeCount", 0)
         published = work_node.get("publishedAt", "")
         last_episode = work_node.get("lastEpisodePublishedAt", "")
         last_edited = work_node.get("editedAt", "")
@@ -189,6 +192,7 @@ class KakuyomuScraper:
             work_url=url,
             status=status,
             character_count=character_count,
+            episode_count=episode_count,
             published=published,
             last_episode=last_episode,
             last_edited=last_edited,
