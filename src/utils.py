@@ -177,40 +177,6 @@ def generate_colophon(meta: WorkMeta, clean: bool = False, lang: str = "ja") -> 
     return html.encode("utf-8")
 
 
-# def generate_colophon(
-#     title: str, author: str, work_url: str, lang: str = "ja"
-# ) -> bytes:
-#     html = f"""<?xml version="1.0" encoding="UTF-8"?>
-# <!DOCTYPE html>
-# <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{lang}">
-# <head>
-# <meta charset="UTF-8"/>
-# <title>奥付</title>
-# <link rel="stylesheet" type="text/css" href="style/colophon.css"/>
-# </head>
-# <body class="p-colophon">
-# <div class="main">
-
-#   <div class="book-title">
-#     <p class="colophon-title">{title}</p>
-#     <p class="colophon-author">{author}</p>
-#   </div>
-
-#   <div class="colophon-meta">
-#     <p>取得</p>
-#   </div>
-
-#   <div class="colophon-source">
-#     <p>出典：カクヨム</p>
-#     <p><a href="{work_url}">{work_url}</a></p>
-#   </div>
-
-# </div>
-# </body>
-# </html>"""
-#     return html.encode("utf-8")
-
-
 def safe_filename(title: str) -> str:
     safe = re.sub(r'[\\/*?:"<>|]', "", title)
     safe = safe.strip().replace(" ", "_")

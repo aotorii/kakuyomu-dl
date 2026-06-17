@@ -61,7 +61,7 @@ class XhtmlWriter:
             return path
 
         xhtml = self._render(episode)
-        path.write_text(xhtml, encoding="utf-8")
+        path.write_text(xhtml, encoding="utf-8", newline="\n")
         logger.info(f"Wrote: {path}")
         return path
 
