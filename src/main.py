@@ -9,8 +9,8 @@ import cache
 from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
-from scraper import KakuyomuScraper, TocEntry, WorkMeta
-from utils import display_date, display_title, parse_plural
+from scraper import KakuyomuScraper, TocEntry
+from utils import display_title, parse_plural, print_meta
 from writer import XhtmlWriter
 
 logging.basicConfig(
@@ -71,21 +71,6 @@ def print_toc(entries: list[TocEntry]) -> None:
     print(
         f"\nTotal: {parse_plural('episode', len(entries))} ({free} free, {locked_count} locked)"
     )
-
-
-def print_meta(meta: WorkMeta) -> None:
-    line = [
-        ("Title", f"{meta.title}"),
-        ("Author", f"{meta.author}"),
-        ("Status", f"{meta.status.capitalize()}"),
-        ("Publish date", f"{display_date(meta.published)}"),
-        ("Last episode on", f"{display_date(meta.last_episode)}"),
-        ("Last edited on", f"{display_date(meta.last_edited)}"),
-        ("Total character count", f"{meta.character_count:,}"),
-    ]
-    width = max(len(key) for key, _ in line)
-    for key, value in line:
-        print(f"  {key:<{width}}   {value}")
 
 
 def fetch_config_init(config: FetchConfig, args: argparse.Namespace) -> FetchConfig:

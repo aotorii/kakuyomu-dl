@@ -36,7 +36,7 @@ class WorkMeta:
     work_url: str
     status: str
     character_count: int
-    episode_count = int
+    episode_count: int
     published: str
     last_episode: str
     last_edited: str
@@ -67,6 +67,21 @@ def display_title(title: str) -> str:
     left = space // 2
     right = space - left
     return "-" * left + title + "-" * right
+
+
+def print_meta(meta: WorkMeta) -> None:
+    line = [
+        ("Title", f"{meta.title}"),
+        ("Author", f"{meta.author}"),
+        ("Status", f"{meta.status.capitalize()}"),
+        ("Publish date", f"{display_date(meta.published)}"),
+        ("Last episode on", f"{display_date(meta.last_episode)}"),
+        ("Last edited on", f"{display_date(meta.last_edited)}"),
+        ("Total character count", f"{meta.character_count:,}"),
+    ]
+    width = max(len(key) for key, _ in line)
+    for key, value in line:
+        print(f"  {key:<{width}}   {value}")
 
 
 def escape(text: str) -> str:
