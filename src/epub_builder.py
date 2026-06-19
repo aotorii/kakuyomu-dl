@@ -267,7 +267,6 @@ class EpubBuilder:
             file_name="text/colophon.xhtml",
             lang=self.language,
         )
-        print(meta.work_url)
         colophon.content = generate_colophon(meta, self.clean)
         book.add_item(colophon)
         book.toc = book.toc + (epub.Link("text/colophon.xhtml", "奥付", "colophon"),)
