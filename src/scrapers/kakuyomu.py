@@ -9,11 +9,11 @@ import requests
 from bs4 import BeautifulSoup, Tag
 
 from scrapers import BaseScraper
-from utils import BASE_URL, DATE_RE, parse_plural, strip_date
+from utils import DATE_RE, parse_plural, strip_date
 
 logger = logging.getLogger(__name__)
 
-
+BASE_URL = "https://kakuyomu.jp/works/"
 WORK_URL = BASE_URL + "{work_id}"
 EP_URL = BASE_URL + "{work_id}/episodes/{episode_id}"
 

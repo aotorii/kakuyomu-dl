@@ -1,5 +1,6 @@
 import io
 import re
+import sys
 import textwrap
 from dataclasses import dataclass
 from datetime import datetime
@@ -9,7 +10,6 @@ import inflect
 from PIL import Image, ImageDraw, ImageFont
 from wcwidth import wcswidth
 
-BASE_URL = "https://kakuyomu.jp/works/"
 DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
 PROMO_RE = re.compile(
     r"【[^】]*(発売|書籍化|連載|コミカライズ|コミック|続刊|完結|受賞|大賞)[^】]*】"
@@ -45,6 +45,17 @@ class WorkMeta:
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:
     P = inflect.engine()
     return f"{num} {prefix}{P.plural_noun(noun, num)}"
+
+
+def parse_series_id(value: str) -> str:
+    value = value.strip().rstrip("/")
+    match = re.search(r"(?:kakuyomu\.jp/works|syosetu\.com)/([\da-z]+)", value)
+    if match:
+        return match.group(1)
+    if re.fullmatch(r"[\da-z]+", value, re.IGNORECASE):
+        return value.lower()
+    print(f"[error] Could not parse a series ID from: {value!r}.", file=sys.stderr)
+    sys.exit(1)
 
 
 def clean_title(title: str, clean: bool) -> str:

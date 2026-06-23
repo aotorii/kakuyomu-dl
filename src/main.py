@@ -11,7 +11,7 @@ from epub_builder import EpubBuilder
 from parser import EpisodeParser
 from scrapers import BaseScraper, KakuyomuScraper, NaroScraper
 from scrapers.kakuyomu import TocEntry as KakuTocEntry
-from utils import display_title, parse_plural, print_meta
+from utils import display_title, parse_plural, parse_series_id, print_meta
 from writer import XhtmlWriter
 
 logging.basicConfig(
@@ -25,17 +25,6 @@ SCRAPERS = {
     r"\d+": KakuyomuScraper,
     r"n\d{4}[a-z]{1,2}": NaroScraper,
 }
-
-
-def parse_series_id(value: str) -> str:
-    value = value.strip().rstrip("/")
-    match = re.search(r"(?:kakuyomu\.jp/works|syosetu\.com)/([\da-z]+)", value)
-    if match:
-        return match.group(1)
-    if re.fullmatch(r"[\da-z]+", value, re.IGNORECASE):
-        return value
-    print(f"[error] Could not parse a series ID from: {value!r}.", file=sys.stderr)
-    sys.exit(1)
 
 
 def parse_episode_selection(spec: str, total: int) -> list[int]:
@@ -493,7 +482,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_debug(args: argparse.Namespace) -> None:
-    print(get_scraper(parse_series_id(args.series), args.delay))
+    series_id = parse_series_id(args.series)
+    scraper = get_scraper(series_id, args.delay)
+    print(scraper.fetch_work_meta(series_id))
 
 
 def main() -> None:
