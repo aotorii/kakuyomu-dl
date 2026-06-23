@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from scraper import Episode, RawParagraph
+from scrapers.kakuyomu import Episode, RawParagraph
 from utils import DATE_RE, SCENE_BREAK_RE
 
 

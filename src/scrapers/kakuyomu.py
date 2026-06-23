@@ -8,6 +8,7 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup, Tag
 
+from scrapers import BaseScraper
 from utils import BASE_URL, DATE_RE, parse_plural, strip_date
 
 logger = logging.getLogger(__name__)
@@ -62,14 +63,14 @@ class Episode:
     raw_paragraphs: list[RawParagraph] = field(default_factory=list)
 
 
-class KakuyomuScraper:
+class KakuyomuScraper(BaseScraper):
     def __init__(
         self,
         delay: float = 1.0,
         timeout: int = 15,
         user_agent: str = (
             "Mozilla/5.0 (compatible; kakuyomu-dl/0.1; "
-            "+https://github.com/yourname/kakuyomu-dl)"
+            "+https://github.com/aotorii/kakuyomu-dl)"
         ),
     ):
         self.delay = delay

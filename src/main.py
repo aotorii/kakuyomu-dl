@@ -9,7 +9,8 @@ import cache
 from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
-from scraper import KakuyomuScraper, TocEntry
+from scrapers import BaseScraper, KakuyomuScraper, NaroScraper
+from scrapers.kakuyomu import TocEntry as KakuTocEntry
 from utils import display_title, parse_plural, print_meta
 from writer import XhtmlWriter
 
@@ -20,15 +21,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+SCRAPERS = {
+    r"\d+": KakuyomuScraper,
+    r"n\d{4}[a-z]{1,2}": NaroScraper,
+}
+
 
 def parse_series_id(value: str) -> str:
     value = value.strip().rstrip("/")
-    match = re.search(r"kakuyomu\.jp/works/(\d+)", value)
+    match = re.search(r"(?:kakuyomu\.jp/works|syosetu\.com)/([\da-z]+)", value)
     if match:
         return match.group(1)
-    if re.fullmatch(r"\d+", value):
+    if re.fullmatch(r"[\da-z]+", value, re.IGNORECASE):
         return value
-    print(f"[error] Could not parse a series ID from: {value!r}", file=sys.stderr)
+    print(f"[error] Could not parse a series ID from: {value!r}.", file=sys.stderr)
     sys.exit(1)
 
 
@@ -52,7 +58,15 @@ def parse_episode_selection(spec: str, total: int) -> list[int]:
     return valid
 
 
-def print_toc(entries: list[TocEntry]) -> None:
+def get_scraper(series_id: str, delay: float) -> BaseScraper:
+    for match, cls in SCRAPERS.items():
+        if re.fullmatch(match, series_id, re.IGNORECASE):
+            return cls(delay=delay)
+    print(f"[error] Unsupported series ID: {series_id!r}.", file=sys.stderr)
+    sys.exit(1)
+
+
+def print_toc(entries: list[KakuTocEntry]) -> None:
     width = len(str(len(entries)))
     print()
     last_category = object()
@@ -108,7 +122,8 @@ def cmd_toc(args: argparse.Namespace) -> None:
 def cmd_fetch(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
     config = fetch_config_init(FetchConfig(), args)
-    scraper = KakuyomuScraper(delay=args.delay)
+    # scraper = KakuyomuScraper(delay=args.delay)
+    scraper = get_scraper(series_id, args.delay)
     parser = EpisodeParser()
     xhtml_dir = config.out_dir / series_id / "xhtml"
     writer = XhtmlWriter(
@@ -467,7 +482,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     bookmark_p.set_defaults(func=cmd_bookmark)
 
+    debug_p = subparsers.add_parser("debug", help="vanilla")
+    debug_p.add_argument(
+        "series",
+        help="series ID or full url",
+    )
+    debug_p.set_defaults(func=cmd_debug)
+
     return parser
+
+
+def cmd_debug(args: argparse.Namespace) -> None:
+    print(get_scraper(parse_series_id(args.series), args.delay))
 
 
 def main() -> None:
