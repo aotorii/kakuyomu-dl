@@ -9,9 +9,15 @@ import cache
 from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
-from scrapers import BaseScraper, KakuyomuScraper, NaroScraper
-from scrapers.kakuyomu import TocEntry as KakuTocEntry
-from utils import display_title, parse_plural, parse_series_id, print_meta
+from scrapers import BaseScraper, KakuyomuScraper, NaroScraper, TocEntry
+from utils import (
+    better_view,
+    display_title,
+    parse_plural,
+    parse_series_id,
+    parse_status,
+    print_meta,
+)
 from writer import XhtmlWriter
 
 logging.basicConfig(
@@ -55,22 +61,33 @@ def get_scraper(series_id: str, delay: float) -> BaseScraper:
     sys.exit(1)
 
 
-def print_toc(entries: list[KakuTocEntry]) -> None:
+def print_toc(entries: list[TocEntry]) -> None:
     width = len(str(len(entries)))
     print()
     last_category = object()
-    locked_count = 0
+    locked_count, chapter = 0, []
     for episode in entries:
-        if episode.category != last_category:
-            last_category = episode.category
-            if episode.category:
-                print(f"\n  [{episode.category}]")
         date = f"  ({episode.published_on})" if episode.published_on else ""
         lock = " (locked)" if episode.locked else ""
-        print(f"  {str(episode.index).rjust(width)}  {episode.title}{date}{lock}")
         if episode.locked:
             locked_count += 1
+        if episode.category != last_category:
+            last_category = episode.category
+            if chapter:
+                indices = [x for x, _, _ in chapter]
+                eps = better_view([(y, z) for _, y, z in chapter])
+                for index, ep in zip(indices, eps):
+                    print(f"  {index.rjust(width)} {ep}")
+                chapter = []
+            if episode.category:
+                print(f"\n  [{episode.category}]")
+        chapter.append((str(episode.index), episode.title, f"{date}{lock}"))
     free = len(entries) - locked_count
+    if chapter:
+        indices = [x for x, _, _ in chapter]
+        eps = better_view([(y, z) for _, y, z in chapter])
+        for index, ep in zip(indices, eps):
+            print(f"  {index.rjust(width)} {ep}")
     print(
         f"\nTotal: {parse_plural('episode', len(entries))} ({free} free, {locked_count} locked)"
     )
@@ -213,7 +230,7 @@ def cmd_epub(args: argparse.Namespace) -> None:
     entries = scraper.parse_toc(apollo, series_id)
     print(f"  {'Title':<12}{meta.title}")
     print(f"  {'Author':<12}{meta.author}")
-    print(f"  {'Status':<12}{meta.status.capitalize()}")
+    print(f"  {'Status':<12}{parse_status(meta.status)}")
     print(
         f"  {parse_plural('episode', len(entries) - sum(1 for episode in entries if episode.locked), 'available ')} in TOC."
     )
@@ -277,6 +294,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
             series_id = parse_series_id(series)
             scraper = KakuyomuScraper(delay=args.delay)
             meta = scraper.fetch_work_meta(series_id)
+            status = parse_status(meta.status)
             if series_id in [dict["series_id"] for dict in bookmarks]:
                 print(f"This series is already on your bookmark list: {meta.title}")
                 continue
@@ -284,7 +302,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
                 "title": meta.title,
                 "author": meta.author,
                 "series_id": series_id,
-                "status": meta.status.capitalize(),
+                "status": status,
             }
             bookmarks.append(bookmark)
         with open(FILE, "w", encoding="utf-8") as f:
@@ -484,7 +502,8 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_debug(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
     scraper = get_scraper(series_id, args.delay)
-    print(scraper.fetch_work_meta(series_id))
+    _, toc, _ = scraper.fetch_meta_and_toc(series_id)
+    print_toc(toc)
 
 
 def main() -> None:

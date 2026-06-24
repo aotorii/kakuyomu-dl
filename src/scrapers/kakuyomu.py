@@ -8,8 +8,8 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup, Tag
 
-from scrapers import BaseScraper
-from utils import DATE_RE, parse_plural, strip_date
+from scrapers import BaseScraper, TocEntry, WorkMeta
+from utils import parse_plural
 
 logger = logging.getLogger(__name__)
 
@@ -20,32 +20,6 @@ EP_URL = BASE_URL + "{work_id}/episodes/{episode_id}"
 CHAPTER_TITLE_SELECTOR = "p.chapterTitle"
 EPISODE_TITLE_SELECTOR = "p.widget-episodeTitle"
 EPISODE_BODY_SELECTOR = "div.widget-episodeBody"
-
-
-@dataclass
-class TocEntry:
-    index: int
-    title: str
-    url: str
-    episode_id: str
-    category: str = ""
-    published_on: str = ""
-    locked: bool = False
-
-
-@dataclass
-class WorkMeta:
-    series_id: str
-    title: str
-    author: str
-    description: str
-    work_url: str
-    status: str
-    character_count: int
-    episode_count: int
-    published: str
-    last_episode: str
-    last_edited: str
 
 
 @dataclass
@@ -120,8 +94,7 @@ class KakuyomuScraper(BaseScraper):
         category = main_tag.get_text(strip=True) if main_tag else ""
 
         sub_tag = soup.select_one(EPISODE_TITLE_SELECTOR)
-        raw_title = sub_tag.get_text(strip=True) if sub_tag else entry.title
-        title = strip_date(raw_title)
+        title = sub_tag.get_text(strip=True) if sub_tag else entry.title
 
         body_tag = soup.select_one(EPISODE_BODY_SELECTOR)
         raw_paragraphs: list[RawParagraph] = []
@@ -176,6 +149,7 @@ class KakuyomuScraper(BaseScraper):
 
         description = work_node.get("introduction", "").strip()
         status = work_node.get("serialStatus", "")
+        status = 0 if status == "COMPLETED" else 1
         character_count = work_node.get("totalCharacterCount", 0)
         episode_count = work_node.get("publicEpisodeCount", 0)
         published = work_node.get("publishedAt", "")
@@ -233,12 +207,10 @@ class KakuyomuScraper(BaseScraper):
                     if ep_node
                     else ep_key.split(":")[-1]
                 )
-                raw_title = ep_node.get("title", "") if ep_node else ""
+                title = ep_node.get("title", "") if ep_node else ""
                 published_at = ep_node.get("publishedAt", "") if ep_node else ""
 
-                date_match = DATE_RE.search(raw_title)
-                published_on = date_match.group(1) if date_match else published_at[:10]
-                title = strip_date(raw_title)
+                published_on = published_at[:10]
 
                 entries.append(
                     TocEntry(

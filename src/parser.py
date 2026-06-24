@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 
 from scrapers.kakuyomu import Episode, RawParagraph
-from utils import DATE_RE, SCENE_BREAK_RE
+from utils import SCENE_BREAK_RE
 
 
 class BlockType(Enum):
@@ -55,7 +55,7 @@ class EpisodeParser:
         return ParsedEpisode(
             index=Episode.index,
             episode_id=Episode.episode_id,
-            title=self._clean_title(Episode.title),
+            title=Episode.title,
             category=Episode.category,
             blocks=blocks,
         )
@@ -88,7 +88,3 @@ class EpisodeParser:
         rest = re.sub(r"[ \t]+", " ", rest)
         rest = rest.rstrip()
         return prefix + rest
-
-    def _clean_title(self, title: str) -> str:
-        title = DATE_RE.sub("", title).strip()
-        return title

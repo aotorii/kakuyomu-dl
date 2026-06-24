@@ -2,17 +2,17 @@ import io
 import re
 import sys
 import textwrap
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 import inflect
 from PIL import Image, ImageDraw, ImageFont
-from wcwidth import wcswidth
 
-DATE_RE = re.compile(r"\s*(\d{4}年\d{1,2}月\d{1,2}日)公開$")
 PROMO_RE = re.compile(
-    r"【[^】]*(発売|書籍化|連載|コミカライズ|コミック|続刊|完結|受賞|大賞)[^】]*】"
+    r"【[^】]*(発売|書籍化|アニメ|連載|コミカライズ|コミック|続刊|完結|受賞|大賞|金賞|重版|更新|追加|シリーズ化|PV|達成|開始)[^】]*】",
+    re.IGNORECASE,
 )
 SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇—―─·・…〜~＝=\-_]+$")
 
@@ -34,7 +34,7 @@ class WorkMeta:
     author: str
     description: str
     work_url: str
-    status: str
+    status: int
     character_count: int
     episode_count: int
     published: str
@@ -45,6 +45,10 @@ class WorkMeta:
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:
     P = inflect.engine()
     return f"{num} {prefix}{P.plural_noun(noun, num)}"
+
+
+def parse_status(status: int) -> str:
+    return "Running" if status else "Completed"
 
 
 def parse_series_id(value: str) -> str:
@@ -62,17 +66,13 @@ def clean_title(title: str, clean: bool) -> str:
     return PROMO_RE.sub("", title).strip() if clean else title
 
 
-def strip_date(title: str) -> str:
-    return DATE_RE.sub("", title).strip()
-
-
 def display_date(time: str) -> str:
     dt = datetime.fromisoformat(time.replace("Z", "+00:00"))
     return f"{dt:%Y-%m-%d}"
 
 
 def display_title(title: str) -> str:
-    space = 100 - wcswidth(title)
+    space = 100 - display_width(title)
     if space <= 0:
         return title
     left = space // 2
@@ -84,7 +84,7 @@ def print_meta(meta: WorkMeta) -> None:
     line = [
         ("Title", f"{meta.title}"),
         ("Author", f"{meta.author}"),
-        ("Status", f"{meta.status.capitalize()}"),
+        ("Status", f"{parse_status(meta.status)}"),
         ("Publish date", f"{display_date(meta.published)}"),
         ("Last episode on", f"{display_date(meta.last_episode)}"),
         ("Last edited on", f"{display_date(meta.last_edited)}"),
@@ -93,6 +93,26 @@ def print_meta(meta: WorkMeta) -> None:
     width = max(len(key) for key, _ in line)
     for key, value in line:
         print(f"  {key:<{width}}   {value}")
+
+
+def display_width(text: str) -> int:
+    width = 0
+    for ch in text:
+        eaw = unicodedata.east_asian_width(ch)
+        if eaw in ("W", "F"):
+            width += 2
+        elif eaw == "A":
+            width += 2
+        else:
+            width += 1
+    return width
+
+
+def better_view(data: list[tuple[str, str]]) -> str:
+    width, result = max(display_width(key) for key, _ in data), []
+    for key, value in data:
+        result.append(f"{key}{' ' * (width - display_width(key))}{value}")
+    return result
 
 
 def escape(text: str) -> str:
@@ -162,7 +182,7 @@ def generate_cover(
 
 
 def generate_colophon(meta: WorkMeta, clean: bool = False, lang: str = "ja") -> bytes:
-    status = "完結済" if meta.status == "COMPLETED" else "連載中"
+    status = "連載中" if meta.status else "完結済"
     title = clean_title(meta.title, clean)
     line = [
         ("執筆状況", f"{status}"),
@@ -171,12 +191,13 @@ def generate_colophon(meta: WorkMeta, clean: bool = False, lang: str = "ja") -> 
         ("公開日", f"{meta.published}"),
         ("最終更新日", f"{meta.last_edited}"),
     ]
-    info = '<table style="border-collapse: collapse; line-height: 2;">'
+    info = '<table style="border-collapse: collapse; border: none; line-height: 2;">'
     for key, value in line:
         info += (
-            '<tr><td style="padding-right: 2em;">'
+            '<tr><td style="border: none; width: 8em;">'
+            # 'padding-right: 2em;">'
             + key
-            + "</td><td>"
+            + '</td><td style="border: none">'
             + value
             + "</td></tr>"
         )
