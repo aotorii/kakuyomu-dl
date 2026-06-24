@@ -128,7 +128,6 @@ def cmd_toc(args: argparse.Namespace) -> None:
 def cmd_fetch(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
     config = fetch_config_init(FetchConfig(), args)
-    # scraper = KakuyomuScraper(delay=args.delay)
     scraper = get_scraper(series_id, args.delay)
     parser = EpisodeParser()
     xhtml_dir = config.out_dir / series_id / "xhtml"
@@ -140,26 +139,26 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     meta, entries, apollo = scraper.fetch_meta_and_toc(series_id)
     print_meta(meta)
 
-    old_apollo = cache.load(series_id)
-    if old_apollo:
-        result = cache.diff(old_apollo, apollo, series_id)
-        if result.has_new_unlocked:
-            print(
-                f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:"
-            )
-            for title in result.new_unlocked:
-                print(f"  + {title}")
-        if result.has_update:
-            print(
-                f"{parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:"
-            )
-            for title, is_free in result.new_episode_titles:
-                lock = " (locked)" if not is_free else ""
-                print(f"  + {title}{lock}")
-        else:
-            print("No new episodes since last fetch.")
+    # old_apollo = cache.load(series_id)
+    # if old_apollo:
+    #     result = cache.diff(old_apollo, apollo, series_id)
+    #     if result.has_new_unlocked:
+    #         print(
+    #             f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:"
+    #         )
+    #         for title in result.new_unlocked:
+    #             print(f"  + {title}")
+    #     if result.has_update:
+    #         print(
+    #             f"{parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:"
+    #         )
+    #         for title, is_free in result.new_episode_titles:
+    #             lock = " (locked)" if not is_free else ""
+    #             print(f"  + {title}{lock}")
+    #     else:
+    #         print("No new episodes since last fetch.")
 
-    cache.save(apollo, series_id)
+    # cache.save(apollo, series_id)
 
     if args.episodes:
         indices = parse_episode_selection(args.episodes, len(entries))
@@ -192,8 +191,8 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         parsed = parser.parse_many(raw_episodes)
         paths = writer.write_many(parsed)
         exist = (
-            f"Skipped {parse_plural('file', to_fetch - len(paths) - sum(1 for episode in entries if episode.locked), 'existing xhtml ')}, "
-            if indices
+            f"Skipped {parse_plural('file', to_fetch - len(paths) - sum(1 for ep in [e for e in entries if e.index in indices] if ep.locked), 'existing xhtml ')}, "
+            if indices and len(indices) != to_fetch
             else ""
         )
         print(

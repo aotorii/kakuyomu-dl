@@ -2,13 +2,12 @@ import copy
 import json
 import logging
 import time
-from dataclasses import dataclass, field
 from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup, Tag
 
-from scrapers import BaseScraper, TocEntry, WorkMeta
+from scrapers import BaseScraper, Episode, RawParagraph, TocEntry, WorkMeta
 from utils import parse_plural
 
 logger = logging.getLogger(__name__)
@@ -20,21 +19,6 @@ EP_URL = BASE_URL + "{work_id}/episodes/{episode_id}"
 CHAPTER_TITLE_SELECTOR = "p.chapterTitle"
 EPISODE_TITLE_SELECTOR = "p.widget-episodeTitle"
 EPISODE_BODY_SELECTOR = "div.widget-episodeBody"
-
-
-@dataclass
-class RawParagraph:
-    text: str
-    is_blank: bool
-
-
-@dataclass
-class Episode:
-    index: int
-    title: str
-    category: str
-    episode_id: str
-    raw_paragraphs: list[RawParagraph] = field(default_factory=list)
 
 
 class KakuyomuScraper(BaseScraper):
@@ -91,25 +75,28 @@ class KakuyomuScraper(BaseScraper):
         soup = self._get_soup(entry.url)
 
         main_tag = soup.select_one(CHAPTER_TITLE_SELECTOR)
-        category = main_tag.get_text(strip=True) if main_tag else ""
+        category = main_tag.get_text(strip=True) if main_tag else entry.category
 
         sub_tag = soup.select_one(EPISODE_TITLE_SELECTOR)
         title = sub_tag.get_text(strip=True) if sub_tag else entry.title
 
-        body_tag = soup.select_one(EPISODE_BODY_SELECTOR)
+        body_tags = soup.select(EPISODE_BODY_SELECTOR)
         raw_paragraphs: list[RawParagraph] = []
-        if body_tag:
-            for p in body_tag.find_all("p"):
-                is_blank = "blank" in (p.get("class") or [])
-                text = self._extract_text(p, is_blank=is_blank)
-                raw_paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
+        if body_tags:
+            for i, body_tag in enumerate(body_tags):
+                for p in body_tag.find_all("p"):
+                    is_blank = "blank" in (p.get("class") or [])
+                    text = self._extract_text(p, is_blank=is_blank)
+                    raw_paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
+                if i < len(body_tags) - 1:
+                    raw_paragraphs.append(RawParagraph(text="", is_blank=True))
         else:
             logger.warning(f"Body not found for episode {entry.episode_id}")
 
         return Episode(
             index=entry.index,
             title=title,
-            category=category or entry.category,
+            category=category,
             episode_id=entry.episode_id,
             raw_paragraphs=raw_paragraphs,
         )

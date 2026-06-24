@@ -1,18 +1,24 @@
+import copy
 import logging
+import time
+from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
-from scrapers import BaseScraper, TocEntry, WorkMeta
-from utils import parse_series_id
+from scrapers import BaseScraper, Episode, RawParagraph, TocEntry, WorkMeta
+from utils import parse_plural, parse_series_id
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://{novel}.syosetu.com/"
 WORK_URL = BASE_URL + "{work_id}"
-# EP_URL = BASE_URL + "{work_id}/{episode_id}"
 META_URL = "https://api.syosetu.com/{api}/api/?ncode={work_id}&out=json"
+
+CHAPTER_TITLE_SELECTOR = "div.c-announce span:not([class])"
+EPISODE_TITLE_SELECTOR = "h1.p-novel__title"
+EPISODE_BODY_SELECTOR = "div.js-novel-text"
 
 
 class NaroScraper(BaseScraper):
@@ -46,6 +52,62 @@ class NaroScraper(BaseScraper):
         entries = self.parse_toc(data, series_id)
         return meta, entries, data
 
+    def fetch_toc(self, series_id: str) -> list[TocEntry]:
+        _, entries, _ = self.fetch_meta_and_toc(series_id)
+        return entries
+
+    def fetch_episode(self, entry: TocEntry) -> Episode:
+        logger.info(f"Fetching episode {entry.index}: {entry.title}")
+        soup = self._get_soup(entry.url)
+
+        main_tag = soup.select_one(CHAPTER_TITLE_SELECTOR)
+        category = main_tag.get_text(strip=True) if main_tag else entry.category
+
+        sub_tag = soup.select_one(EPISODE_TITLE_SELECTOR)
+        title = sub_tag.get_text(strip=True) if sub_tag else entry.title
+
+        body_tags = soup.select(EPISODE_BODY_SELECTOR)
+        raw_paragraphs: list[RawParagraph] = []
+        if body_tags:
+            for i, body_tag in enumerate(body_tags):
+                for p in body_tag.find_all("p"):
+                    is_blank = not p.get_text(strip=True)
+                    text = self._extract_text(p, is_blank=is_blank)
+                    raw_paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
+                if i < len(body_tags) - 1:
+                    raw_paragraphs.append(RawParagraph(text="", is_blank=True))
+        else:
+            logger.warning(f"Body not found for episode {entry.episode_id}")
+
+        return Episode(
+            index=entry.index,
+            title=title,
+            category=category,
+            episode_id=entry.episode_id,
+            raw_paragraphs=raw_paragraphs,
+        )
+
+    def fetch_episodes(
+        self,
+        entries: list[TocEntry],
+        indices: Optional[list[int]] = None,
+    ) -> list[Episode]:
+        targets = (
+            [e for e in entries if e.index in indices]
+            if indices is not None
+            else entries
+        )
+        fetch = [e for e in targets if not e.locked]
+        skip = [e for e in targets if e.locked]
+        if skip:
+            logger.info(f"Skipping {parse_plural('episode', len(skip), 'locked ')}…")
+        episodes: list[Episode] = []
+        for i, entry in enumerate(fetch):
+            if i > 0:
+                time.sleep(self.delay)
+            episodes.append(self.fetch_episode(entry))
+        return episodes
+
     def parse_work_meta(self, data: dict, series_id: str) -> WorkMeta:
         url = (
             WORK_URL.format(novel="novel18", work_id=series_id)
@@ -75,10 +137,6 @@ class NaroScraper(BaseScraper):
             last_episode=last_episode,
             last_edited=last_edited,
         )
-
-    def fetch_toc(self, series_id: str) -> list[TocEntry]:
-        _, entries, _ = self.fetch_meta_and_toc(series_id)
-        return entries
 
     def parse_toc(self, data: dict, series_id: str) -> list[TocEntry]:
         eplist = data.get("eplist", [])
@@ -153,3 +211,11 @@ class NaroScraper(BaseScraper):
             url = WORK_URL.format(novel="novel18", work_id=series_id)
             return url
         return url
+
+    def _extract_text(self, tag: Tag, is_blank: bool = False) -> str:
+        if is_blank:
+            return ""
+        p = copy.copy(tag)
+        for rp in p.find_all("rp"):
+            rp.decompose()
+        return p.decode_contents()
