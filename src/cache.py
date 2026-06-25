@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from config import OUT_DIR
@@ -75,7 +75,8 @@ def diff(old_state: dict, new_state: dict, series_id: str) -> UpdateResult:
         old_count=len(old_episodes),
         new_count=len(new_episodes),
         new_unlocked=new_unlocked,
-        meta_updated=old_edited < new_edited and new_last_ep < new_edited,
+        meta_updated=new_edited > old_edited
+        and new_edited - new_last_ep > timedelta(minutes=1),
     )
 
 

@@ -120,7 +120,7 @@ def bookmark_config_init(config: BookmarkUpdateConfig) -> BookmarkUpdateConfig:
 
 def cmd_toc(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
-    scraper = KakuyomuScraper(delay=args.delay)
+    scraper = get_scraper(series_id, args.delay)
     entries = scraper.fetch_toc(series_id)
     print_toc(entries)
 
@@ -139,26 +139,26 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     meta, entries, apollo = scraper.fetch_meta_and_toc(series_id)
     print_meta(meta)
 
-    # old_apollo = cache.load(series_id)
-    # if old_apollo:
-    #     result = cache.diff(old_apollo, apollo, series_id)
-    #     if result.has_new_unlocked:
-    #         print(
-    #             f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:"
-    #         )
-    #         for title in result.new_unlocked:
-    #             print(f"  + {title}")
-    #     if result.has_update:
-    #         print(
-    #             f"{parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:"
-    #         )
-    #         for title, is_free in result.new_episode_titles:
-    #             lock = " (locked)" if not is_free else ""
-    #             print(f"  + {title}{lock}")
-    #     else:
-    #         print("No new episodes since last fetch.")
+    old_apollo = cache.load(series_id)
+    if old_apollo:
+        result = cache.diff(old_apollo, apollo, series_id)
+        if result.has_new_unlocked:
+            print(
+                f"{parse_plural('episode', len(result.new_unlocked), 'new available ')} since last fetch:"
+            )
+            for title in result.new_unlocked:
+                print(f"  + {title}")
+        if result.has_update:
+            print(
+                f"{parse_plural('episode', len(result.new_episode_ids), 'new ')} since last fetch:"
+            )
+            for title, is_free in result.new_episode_titles:
+                lock = " (locked)" if not is_free else ""
+                print(f"  + {title}{lock}")
+        else:
+            print("No new episodes since last fetch.")
 
-    # cache.save(apollo, series_id)
+    cache.save(apollo, series_id)
 
     if args.episodes:
         indices = parse_episode_selection(args.episodes, len(entries))

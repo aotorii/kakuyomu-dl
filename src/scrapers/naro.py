@@ -1,14 +1,11 @@
-import copy
 import logging
-import time
-from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup, Tag
 
-from scrapers import BaseScraper, Episode, RawParagraph, TocEntry, WorkMeta
-from utils import parse_plural, parse_series_id
+from scrapers import BaseScraper, Episode, RawParagraph, TocEntry
+from utils import EPOCH, parse_date, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +19,8 @@ EPISODE_BODY_SELECTOR = "div.js-novel-text"
 
 
 class NaroScraper(BaseScraper):
+    EP_URL = "{work_url}" + "/{episode_id}"
+
     def __init__(
         self,
         delay: float = 1.0,
@@ -36,25 +35,6 @@ class NaroScraper(BaseScraper):
         self.session = requests.Session()
         self.session.cookies.set("over18", "yes", domain=".syosetu.com")
         self.session.headers.update({"User-Agent": user_agent})
-
-    def fetch_work_meta(self, series_id: str) -> WorkMeta:
-        url = self._get_url(series_id)
-        data = self._fetch_next_data(url)
-        return self.parse_work_meta(data, series_id)
-
-    def fetch_meta_and_toc(
-        self, series_id: str
-    ) -> tuple[WorkMeta, list[TocEntry], dict]:
-        url = self._get_url(series_id)
-        logger.info(f"Fetching work page: {url}")
-        data = self._fetch_next_data(url)
-        meta = self.parse_work_meta(data, series_id)
-        entries = self.parse_toc(data, series_id)
-        return meta, entries, data
-
-    def fetch_toc(self, series_id: str) -> list[TocEntry]:
-        _, entries, _ = self.fetch_meta_and_toc(series_id)
-        return entries
 
     def fetch_episode(self, entry: TocEntry) -> Episode:
         logger.info(f"Fetching episode {entry.index}: {entry.title}")
@@ -87,91 +67,68 @@ class NaroScraper(BaseScraper):
             raw_paragraphs=raw_paragraphs,
         )
 
-    def fetch_episodes(
-        self,
-        entries: list[TocEntry],
-        indices: Optional[list[int]] = None,
-    ) -> list[Episode]:
-        targets = (
-            [e for e in entries if e.index in indices]
-            if indices is not None
-            else entries
-        )
-        fetch = [e for e in targets if not e.locked]
-        skip = [e for e in targets if e.locked]
-        if skip:
-            logger.info(f"Skipping {parse_plural('episode', len(skip), 'locked ')}…")
-        episodes: list[Episode] = []
-        for i, entry in enumerate(fetch):
-            if i > 0:
-                time.sleep(self.delay)
-            episodes.append(self.fetch_episode(entry))
-        return episodes
+    # def parse_work_meta(self, data: dict, series_id: str) -> WorkMeta:
+    #     url = WORK_URL.format(
+    #         novel="novel18" if data.get("isr18") else "ncode", work_id=series_id
+    #     )
+    #     title = data.get("title", f"Work {series_id}")
+    #     author = data.get("writer", "Unknown")
+    #     description = data.get("story", "")
+    #     status = data.get("end", 1)
+    #     character_count = data.get("length", 0)
+    #     episode_count = data.get("general_all_no", 0)
+    #     published = data.get("general_firstup", "")
+    #     last_episode = data.get("general_lastup", "")
+    #     last_edited = data.get("novelupdated_at", "")
 
-    def parse_work_meta(self, data: dict, series_id: str) -> WorkMeta:
-        url = (
-            WORK_URL.format(novel="novel18", work_id=series_id)
-            if data["isr18"]
-            else WORK_URL.format(novel="ncode", work_id=series_id)
-        )
-        title = data.get("title", f"Work {series_id}")
-        author = data.get("writer", "Unknown")
-        description = data.get("story", "").strip()
-        status = data.get("end", 1)
-        character_count = data.get("length", 0)
-        episode_count = data.get("general_all_no", 0)
-        published = data.get("general_firstup", "")
-        last_episode = data.get("general_lastup", "")
-        last_edited = data.get("novelupdated_at", "")
+    #     return WorkMeta(
+    #         series_id=series_id,
+    #         title=title.strip(),
+    #         author=author.strip(),
+    #         description=description.strip(),
+    #         work_url=url,
+    #         status=status,
+    #         character_count=character_count,
+    #         episode_count=episode_count,
+    #         published=published,
+    #         last_episode=last_episode,
+    #         last_edited=last_edited,
+    #     )
 
-        return WorkMeta(
-            series_id=series_id,
-            title=title,
-            author=author,
-            description=description,
-            work_url=url,
-            status=status,
-            character_count=character_count,
-            episode_count=episode_count,
-            published=published,
-            last_episode=last_episode,
-            last_edited=last_edited,
-        )
-
-    def parse_toc(self, data: dict, series_id: str) -> list[TocEntry]:
-        eplist = data.get("eplist", [])
-        isr18 = data.get("isr18")
-        base_url = BASE_URL.format(novel="novel18" if isr18 else "ncode")
-        entries: list[TocEntry] = []
-        index, category = 1, ""
-        for entry in eplist:
-            classes = entry.get("class", [])
-            if "p-eplist__chapter-title" in classes:
-                category = entry.get_text(strip=True)
-                continue
-            ep = entry.select_one("a.p-eplist__subtitle")
-            title = ep.get_text(strip=True) if ep else ""
-            href = ep.get("href", "") if ep else ""
-            episode_id = href.split("/")[2]
-            update = entry.select_one("div.p-eplist__update")
-            published_at = (
-                (update.find(string=True, recursive=False) or "").strip()
-                if update
-                else ""
-            )
-            published_on = published_at.split(" ")[0].replace("/", "-")
-            entries.append(
-                TocEntry(
-                    index=index,
-                    title=title,
-                    url=urljoin(base_url, href),
-                    episode_id=episode_id,
-                    category=category,
-                    published_on=published_on,
-                )
-            )
-            index += 1
-        return entries
+    # def parse_toc(self, data: dict, series_id: str) -> list[TocEntry]:
+    #     eplist = data.get("eplist", [])
+    #     isr18 = data.get("isr18")
+    #     base_url = BASE_URL.format(novel="novel18" if isr18 else "ncode")
+    #     entries: list[TocEntry] = []
+    #     index, category = 1, ""
+    #     for entry in eplist:
+    #         classes = entry.get("class", [])
+    #         if "p-eplist__chapter-title" in classes:
+    #             category = entry.get_text(strip=True)
+    #             continue
+    #         ep = entry.select_one("a.p-eplist__subtitle")
+    #         title = ep.get_text(strip=True) if ep else ""
+    #         href = ep.get("href", "") if ep else ""
+    #         episode_id = href.split("/")[2] if href else ""
+    #         update = entry.select_one("div.p-eplist__update")
+    #         published_at = (
+    #             (update.find(string=True, recursive=False) or "").strip()
+    #             if update
+    #             else ""
+    #         )
+    #         published_on = published_at.split(" ")[0].replace("/", "-")
+    #         entries.append(
+    #             TocEntry(
+    #                 index=index,
+    #                 title=title,
+    #                 url=urljoin(base_url, href),
+    #                 episode_id=episode_id,
+    #                 category=category,
+    #                 published_on=published_on,
+    #             )
+    #         )
+    #         index += 1
+    #     return entries
 
     def _fetch_next_data(self, url: str) -> dict:
         series_id = parse_series_id(url)
@@ -198,11 +155,6 @@ class NaroScraper(BaseScraper):
         data["eplist"] = eplist
         return data
 
-    def _get_soup(self, url: str) -> BeautifulSoup:
-        response = self.session.get(url, timeout=self.timeout)
-        response.raise_for_status()
-        return BeautifulSoup(response.text, "lxml")
-
     def _get_url(self, series_id: str) -> str:
         url = WORK_URL.format(novel="ncode", work_id=series_id)
         response = self.session.get(url, timeout=self.timeout)
@@ -212,10 +164,115 @@ class NaroScraper(BaseScraper):
             return url
         return url
 
-    def _extract_text(self, tag: Tag, is_blank: bool = False) -> str:
-        if is_blank:
-            return ""
-        p = copy.copy(tag)
-        for rp in p.find_all("rp"):
-            rp.decompose()
-        return p.decode_contents()
+    def _apolloize(self, data: dict, series_id: str) -> dict:
+        apollo = {}
+        user_account = {}
+        work = {}
+        user_id = data.get("userid", "0000000")
+        ncode = data.get("ncode", "").lower() or series_id
+        url = WORK_URL.format(
+            novel="novel18" if data.get("isr18") else "ncode", work_id=ncode
+        )
+        title = data.get("title", f"Work {ncode}")
+        published = data.get("general_firstup", "")
+        last_published = data.get("general_lastup", "")
+        activity_name = data.get("writer", "Unknown")
+        introduction = data.get("story", "")
+        keyword = data.get("keyword", "")
+        status = data.get("end", 1)
+        episode_count = data.get("general_all_no", 0)
+        char_count = data.get("length", 0)
+        edited = data.get("novelupdated_at", "")
+        eplist = data.get("eplist", [])
+        episodes, chapters, toc_ch, toc = self._parse_eplist(eplist)
+        user_account.update({
+            "__typename": "UserAccount",
+            "id": f"{user_id}",
+            "name": f"{user_id}",
+            "activityName": activity_name.strip(),
+        })
+        work.update({
+            "__typename": "Work",
+            "id": ncode,
+            "title": title.strip(),
+            "author": {"__ref": f"UserAccount:{user_id}"},
+            "publishedAt": parse_date(published) or EPOCH,
+            "lastEpisodePublishedAt": parse_date(last_published) or EPOCH,
+            "introduction": introduction.strip(),
+            "tagLabels": keyword.split(),
+            "serialStatus": parse_status(status).upper(),
+            "publicEpisodeCount": episode_count,
+            "totalCharacterCount": char_count,
+            "editedAt": parse_date(edited) or EPOCH,
+            "tableOfContentsV2": toc,
+            "url": url,
+        })
+        apollo.update({
+            f"UserAccount:{user_id}": user_account,
+            f"Work:{ncode}": work,
+            **episodes,
+            **chapters,
+            **toc_ch,
+        })
+        return apollo
+
+    def _parse_eplist(self, eplist: list[Tag]) -> tuple[dict, dict, dict, list]:
+        episodes = {}
+        chapters = {}
+        toc_ch = {}
+        ch_index, ch_id, toc = 0, "", []
+        toc_ch["TableOfContentsChapter:"] = {
+            "__typename": "TableOfContentsChapter",
+            "id": "",
+            "episodeUnions": [],
+            "chapter": None,
+        }
+        for tag in eplist:
+            classes = tag.get("class", [])
+            if "p-eplist__chapter-title" in classes:
+                ch_title = tag.get_text(strip=True)
+                ch_index += 1
+                ch_id = str(ch_index)
+                chapters[f"Chapter:{ch_id}"] = {
+                    "__typename": "Chapter",
+                    "id": ch_id,
+                    "level": 1,
+                    "title": ch_title,
+                }
+                toc_ch[f"TableOfContentsChapter:{ch_id}"] = {
+                    "__typename": "TableOfContentsChapter",
+                    "id": ch_id,
+                    "episodeUnions": [],
+                    "chapter": {"__ref": f"Chapter:{ch_id}"},
+                }
+                continue
+            ep = tag.select_one("a.p-eplist__subtitle")
+            ep_title = ep.get_text(strip=True) if ep else ""
+            href = ep.get("href", "") if ep else ""
+            ep_id = href.split("/")[2] if href else ""
+            update = tag.select_one("div.p-eplist__update")
+            published_at = (
+                (update.find(string=True, recursive=False) or "")
+                .strip()
+                .replace("/", "-")
+                if update
+                else ""
+            )
+            if published_at:
+                published_at += ":00"
+            toc_ch[f"TableOfContentsChapter:{ch_id}"]["episodeUnions"].append({
+                "__ref": f"Episode:{ep_id}"
+            })
+            episodes[f"Episode:{ep_id}"] = {
+                "__typename": "Episode",
+                "id": ep_id,
+                "title": ep_title,
+                "publishedAt": parse_date(published_at).replace("Z", ".000Z"),
+            }
+        if not toc_ch.get("TableOfContentsChapter:").get("episodeUnions"):
+            del toc_ch["TableOfContentsChapter:"]
+        for key, entry in toc_ch.items():
+            if entry.get("episodeUnions"):
+                toc.append({"__ref": key})
+
+        return episodes, chapters, toc_ch, toc

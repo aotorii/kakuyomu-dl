@@ -5,7 +5,7 @@ from pathlib import Path
 from ebooklib import epub
 
 from config import OUT_DIR
-from scrapers.kakuyomu import TocEntry, WorkMeta
+from scrapers import TocEntry, WorkMeta
 from utils import (
     clean_title,
     generate_colophon,

@@ -4,7 +4,7 @@ import sys
 import textwrap
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import inflect
@@ -15,7 +15,7 @@ PROMO_RE = re.compile(
     re.IGNORECASE,
 )
 SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇—―─·・…〜~＝=\-_]+$")
-
+EPOCH = datetime.fromtimestamp(0, timezone.utc).isoformat().replace("+00:00", "Z")
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -60,6 +60,20 @@ def parse_series_id(value: str) -> str:
         return value.lower()
     print(f"[error] Could not parse a series ID from: {value!r}.", file=sys.stderr)
     sys.exit(1)
+
+
+def parse_date(date: str) -> str | None:
+    JST = timezone(timedelta(hours=9))
+    if not date:
+        return None
+    return (
+        datetime
+        .strptime(date, "%Y-%m-%d %H:%M:%S")
+        .replace(tzinfo=JST)
+        .astimezone(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def clean_title(title: str, clean: bool) -> str:
