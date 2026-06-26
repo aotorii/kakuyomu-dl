@@ -52,7 +52,9 @@ class KakuyomuScraper(BaseScraper):
                     text = self._extract_text(p, is_blank=is_blank)
                     raw_paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
                 if i < len(body_tags) - 1:
-                    raw_paragraphs.append(RawParagraph(text="", is_blank=True))
+                    raw_paragraphs.append(
+                        RawParagraph(text="", is_blank=False, is_hr=True)
+                    )
         else:
             logger.warning(f"Body not found for episode {entry.episode_id}")
 

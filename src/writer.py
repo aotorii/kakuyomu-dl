@@ -33,6 +33,7 @@ P_TEMPLATE = Template("<p>$text</p>")
 CATEGORY_TEMPLATE = Template('<p class="chapter-category">$text</p>')
 TITLE_TEMPLATE = Template('<h1 id="toc-$index" class="chapter-title">$text</h1>')
 BLANK_LINE = "<p><br/></p>"
+HORIZONTAL_LINE = '<hr class="horizontal-break" />'
 
 
 class XhtmlWriter:
@@ -94,6 +95,11 @@ class XhtmlWriter:
                     lines.append(BLANK_LINE)
                 else:
                     lines.append(BLANK_LINE)
+
+            elif block.type == BlockType.THEMATIC_BREAK:
+                lines.append(BLANK_LINE)
+                lines.append(HORIZONTAL_LINE)
+                lines.append(BLANK_LINE)
 
         body_content = "\n".join(lines)
 

@@ -2,13 +2,14 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from scrapers.kakuyomu import Episode, RawParagraph
+from scrapers import Episode, RawParagraph
 from utils import SCENE_BREAK_RE
 
 
 class BlockType(Enum):
     PARAGRAPH = auto()
     SCENE_BREAK = auto()
+    THEMATIC_BREAK = auto()
 
 
 @dataclass
@@ -66,6 +67,9 @@ class EpisodeParser:
     def _classify(self, raw: RawParagraph) -> Block | None:
         if raw.is_blank:
             return Block(type=BlockType.SCENE_BREAK)
+
+        if raw.is_hr:
+            return Block(type=BlockType.THEMATIC_BREAK)
 
         cleaned = self._clean_text(raw.text)
         if not cleaned:

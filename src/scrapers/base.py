@@ -42,6 +42,7 @@ class WorkMeta:
 class RawParagraph:
     text: str
     is_blank: bool
+    is_hr: bool = False
 
 
 @dataclass

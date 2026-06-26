@@ -75,6 +75,13 @@ h1.chapter-title {
   letter-spacing: 0.05em;
 }
 
+hr.horizontal-break {
+  border: none;
+  border-top: 4px double #c8b89a;
+  margin: 1.5em auto;
+  width: 95%;
+}
+
 p {
   margin: 0;
   padding: 0;
