@@ -148,7 +148,7 @@ def escape(text: str) -> str:
 def generate_cover(title: str, author: str, site: dict) -> bytes:
     identifier = site.get("site")
     color = site.get("color")
-    bg_path = ASSETS_DIR / "cover" / f"cover_{identifier}.png"
+    bg_path = ASSETS_DIR / "covers" / f"cover_{identifier}.png"
     img = Image.open(bg_path).convert("RGB")
     draw = ImageDraw.Draw(img)
     # expects 1400x2000
