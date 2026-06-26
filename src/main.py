@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import sys
+import time
 from pathlib import Path
 
 import cache
@@ -185,19 +186,23 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         )
 
     if indices == []:
-        print(f"Done. All xhtml files already exist, 0 files written to '{xhtml_dir}'.")
+        print("Done. All xhtml files already exist.")
     else:
         raw_episodes = scraper.fetch_episodes(entries, indices=indices)
         parsed = parser.parse_many(raw_episodes)
         paths = writer.write_many(parsed)
+        skipped = to_fetch - len(indices or [])
         exist = (
-            f"Skipped {parse_plural('file', to_fetch - len(paths) - sum(1 for ep in [e for e in entries if e.index in indices] if ep.locked), 'existing xhtml ')}, "
-            if indices and len(indices) != to_fetch
+            f"Skipped {parse_plural('file', skipped, 'existing xhtml ')}, "
+            if indices and skipped
             else ""
         )
-        print(
-            f"Done. {exist}{parse_plural('file', len(paths))} written to '{xhtml_dir}'."
+        written = (
+            f"{parse_plural('file', len(paths))} written to '{xhtml_dir}'."
+            if len(paths)
+            else "0 files written."
         )
+        print(f"Done. {exist}{written}")
 
     if config.build_epub:
         print("Building EPUB…")
@@ -261,7 +266,7 @@ def cmd_check(args: argparse.Namespace) -> None:
     result = cache.diff(old_apollo, new_apollo, series_id)
     if result.meta_updated:
         print(
-            "The workmeta (title, tags, description, etc.) may has been edited since last fetch. Use 'fetch' to update the meta."
+            "The workmeta (title, tags, description, etc.) or published episodes may have been edited since last fetch. Use 'fetch' to update the data."
         )
     if result.has_new_unlocked:
         print(
@@ -325,6 +330,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
             print(
                 "Will skip completed series. Use 'check' to check if there is any update for them. You can edit the config file to change the setting."
             )
+            time.sleep(1)
             bookmarks = [
                 series for series in bookmarks if series["status"] != "Completed"
             ]
@@ -366,7 +372,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kakuyomu-dl",
-        description="A downloader to download chapters from web novels and write into epub files.",
+        description="A downloader to download chapters from web novels and write into epub files.\n(Available sites: kakuyomu, naro)",
     )
     parser.add_argument(
         "--delay",
@@ -488,21 +494,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     bookmark_p.set_defaults(func=cmd_bookmark)
 
-    debug_p = subparsers.add_parser("debug", help="vanilla")
-    debug_p.add_argument(
-        "series",
-        help="no help",
-    )
-    debug_p.set_defaults(func=cmd_debug)
+    # debug_p = subparsers.add_parser("debug", help="vanilla")
+    # debug_p.add_argument(
+    #     "series",
+    #     help="no help",
+    # )
+    # debug_p.set_defaults(func=cmd_debug)
 
     return parser
 
 
-def cmd_debug(args: argparse.Namespace) -> None:
-    series_id = parse_series_id(args.series)
-    scraper = get_scraper(series_id, args.delay)
-    _, toc, _ = scraper.fetch_meta_and_toc(series_id)
-    print_toc(toc)
+# def cmd_debug(args: argparse.Namespace) -> None:
 
 
 def main() -> None:

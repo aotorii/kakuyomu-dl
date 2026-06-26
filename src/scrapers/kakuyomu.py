@@ -17,7 +17,7 @@ EPISODE_BODY_SELECTOR = "div.widget-episodeBody"
 
 
 class KakuyomuScraper(BaseScraper):
-    EP_URL = "{work_url}" + "episodes/{episode_id}"
+    EP_URL = "{work_url}" + "/episodes/{episode_id}"
 
     def __init__(
         self,

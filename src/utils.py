@@ -148,15 +148,19 @@ def escape(text: str) -> str:
 def generate_cover(title: str, author: str, site: dict) -> bytes:
     identifier = site.get("site")
     color = site.get("color")
-    bg_path = ASSETS_DIR / f"cover_{identifier}.png"
+    bg_path = ASSETS_DIR / "cover" / f"cover_{identifier}.png"
     img = Image.open(bg_path).convert("RGB")
     draw = ImageDraw.Draw(img)
     # expects 1400x2000
     W, H = img.size
 
     try:
-        font_title = ImageFont.truetype(ASSETS_DIR / "NotoSerifJP-Bold.ttf", 80)
-        font_author = ImageFont.truetype(ASSETS_DIR / "NotoSerifJP-Regular.ttf", 48)
+        font_title = ImageFont.truetype(
+            ASSETS_DIR / "fonts" / "NotoSerifJP-Bold.ttf", 80
+        )
+        font_author = ImageFont.truetype(
+            ASSETS_DIR / "fonts" / "NotoSerifJP-Regular.ttf", 48
+        )
     except IOError:
         font_title = ImageFont.load_default()
         font_author = ImageFont.load_default()

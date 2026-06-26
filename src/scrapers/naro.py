@@ -78,6 +78,15 @@ class NaroScraper(BaseScraper):
         response.raise_for_status()
         data = response.json()[1]
         data["isr18"] = isr18
+        if isr18:
+            response = self.session.get(url, timeout=self.timeout)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "lxml")
+            tag = soup.select_one("div.p-novel__author a")
+            author_page = tag.get("href", "") if tag else ""
+            parsed = urlparse(author_page)
+            user_id = parsed.path.strip("/")
+            data["userid"] = user_id
         eplist, next_page = [], series_id
         while next_page:
             url = urljoin(base_url, next_page)
@@ -105,7 +114,7 @@ class NaroScraper(BaseScraper):
         apollo = {}
         user_account = {}
         work = {}
-        user_id = data.get("userid", "0000000")
+        user_id = data.get("userid", "0000000") or "0000000"
         ncode = data.get("ncode", "").lower() or series_id
         url = WORK_URL.format(
             novel="novel18" if data.get("isr18") else "ncode", work_id=ncode
