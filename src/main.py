@@ -213,7 +213,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
 
 def cmd_epub(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
-    scraper = KakuyomuScraper(delay=args.delay)
+    scraper = get_scraper(series_id, args.delay)
     apollo = cache.load(series_id)
     config = epub_config_init(EpubConfig(), args)
     xhtml_dir = config.xhtml_dir / series_id / "xhtml"
@@ -255,7 +255,7 @@ def cmd_check(args: argparse.Namespace) -> None:
         return
 
     print("Fetching latest TOC…")
-    scraper = KakuyomuScraper(delay=args.delay)
+    scraper = get_scraper(series_id, args.delay)
     _, _, new_apollo = scraper.fetch_meta_and_toc(series_id)
 
     result = cache.diff(old_apollo, new_apollo, series_id)
@@ -291,7 +291,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
     if args.add:
         for series in args.add:
             series_id = parse_series_id(series)
-            scraper = KakuyomuScraper(delay=args.delay)
+            scraper = get_scraper(series_id, args.delay)
             meta = scraper.fetch_work_meta(series_id)
             status = parse_status(meta.status)
             if series_id in [dict["series_id"] for dict in bookmarks]:
@@ -366,7 +366,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kakuyomu-dl",
-        description="A downloader to download chapters from kakuyomu web novels.",
+        description="A downloader to download chapters from web novels and write into epub files.",
     )
     parser.add_argument(
         "--delay",
@@ -381,14 +381,14 @@ def build_parser() -> argparse.ArgumentParser:
     toc_p = subparsers.add_parser("toc", help="list all episodes for a novel")
     toc_p.add_argument(
         "series",
-        help="series ID or full kakuyomu url",
+        help="series ID or full web url",
     )
     toc_p.set_defaults(func=cmd_toc)
 
     fetch_p = subparsers.add_parser("fetch", help="fetch episode content")
     fetch_p.add_argument(
         "series",
-        help="series ID or full kakuyomu url",
+        help="series ID or full web url",
     )
     fetch_p.add_argument(
         "--episodes",
@@ -428,7 +428,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     epub_p.add_argument(
         "series",
-        help="series ID or full kakuyomu url",
+        help="series ID or full web url",
     )
     epub_p.add_argument(
         "--xhtml-dir",
@@ -459,7 +459,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check_p.add_argument(
         "series",
-        help="series ID or full kakuyomu url",
+        help="series ID or full web url",
     )
     check_p.set_defaults(func=cmd_check)
 
@@ -491,7 +491,7 @@ def build_parser() -> argparse.ArgumentParser:
     debug_p = subparsers.add_parser("debug", help="vanilla")
     debug_p.add_argument(
         "series",
-        help="series ID or full url",
+        help="no help",
     )
     debug_p.set_defaults(func=cmd_debug)
 

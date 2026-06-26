@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://kakuyomu.jp/works/"
 WORK_URL = BASE_URL + "{work_id}"
-# EP_URL = BASE_URL + "{work_id}/episodes/{episode_id}"
 
 CHAPTER_TITLE_SELECTOR = "p.chapterTitle"
 EPISODE_TITLE_SELECTOR = "p.widget-episodeTitle"

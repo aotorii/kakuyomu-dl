@@ -1,12 +1,15 @@
 import logging
+import re
 import uuid
 from pathlib import Path
 
 from ebooklib import epub
 
-from config import OUT_DIR
 from scrapers import TocEntry, WorkMeta
 from utils import (
+    EPUB_DIR,
+    OUT_DIR,
+    SITE,
     clean_title,
     generate_colophon,
     generate_cover,
@@ -15,6 +18,7 @@ from utils import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 DEFAULT_CSS = """\
 @charset "UTF-8";
@@ -139,13 +143,13 @@ class EpubBuilder:
         self,
         series_id: str = "",
         xhtml_dir: str | Path = OUT_DIR / "{series_id}/xhtml",
-        out_dir: str | Path = OUT_DIR / "{series_id}",
+        out_dir: str | Path = EPUB_DIR,
         filename: str | None = None,
         clean_title: bool = False,
         language: str = "ja",
     ):
         self.xhtml_dir = Path(str(xhtml_dir).format(series_id=series_id))
-        self.out_dir = Path(str(out_dir).format(series_id=series_id))
+        self.out_dir = Path(str(out_dir))
         self.filename = filename
         self.clean = clean_title
         self.language = language
@@ -155,12 +159,14 @@ class EpubBuilder:
 
         book = epub.EpubBook()
         title = clean_title(meta.title, self.clean)
-        book.set_identifier(f"kakuyomu-{meta.series_id}-{uuid.uuid4().hex[:8]}")
+        site = self._get_site(meta.work_url)
+        identifier = site.get("site")
+        book.set_identifier(f"{identifier}-{meta.series_id}-{uuid.uuid4().hex[:8]}")
         book.set_title(title)
         book.set_language(self.language)
         book.add_author(meta.author)
 
-        cover = generate_cover(title, meta.author)
+        cover = generate_cover(title, meta.author, site)
         book.set_cover("image/cover.jpg", cover)
 
         if meta.description:
@@ -283,3 +289,9 @@ class EpubBuilder:
         epub.write_epub(str(out_path), book)
         logger.info(f"EPUB written: {out_path}")
         return out_path
+
+    def _get_site(self, url: str) -> dict:
+        for match, site in SITE.items():
+            if re.search(match, url, re.IGNORECASE):
+                return site
+        raise ValueError(f"Unknown url: {url!r}")

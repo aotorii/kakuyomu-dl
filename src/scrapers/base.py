@@ -60,6 +60,9 @@ class BaseScraper(ABC):
     def fetch_episode(self, entry: TocEntry): ...
 
     @abstractmethod
+    def _fetch_next_data(self, url: str): ...
+
+    @abstractmethod
     def _get_url(self, series_id: str): ...
 
     @abstractmethod

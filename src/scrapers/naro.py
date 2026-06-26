@@ -67,69 +67,6 @@ class NaroScraper(BaseScraper):
             raw_paragraphs=raw_paragraphs,
         )
 
-    # def parse_work_meta(self, data: dict, series_id: str) -> WorkMeta:
-    #     url = WORK_URL.format(
-    #         novel="novel18" if data.get("isr18") else "ncode", work_id=series_id
-    #     )
-    #     title = data.get("title", f"Work {series_id}")
-    #     author = data.get("writer", "Unknown")
-    #     description = data.get("story", "")
-    #     status = data.get("end", 1)
-    #     character_count = data.get("length", 0)
-    #     episode_count = data.get("general_all_no", 0)
-    #     published = data.get("general_firstup", "")
-    #     last_episode = data.get("general_lastup", "")
-    #     last_edited = data.get("novelupdated_at", "")
-
-    #     return WorkMeta(
-    #         series_id=series_id,
-    #         title=title.strip(),
-    #         author=author.strip(),
-    #         description=description.strip(),
-    #         work_url=url,
-    #         status=status,
-    #         character_count=character_count,
-    #         episode_count=episode_count,
-    #         published=published,
-    #         last_episode=last_episode,
-    #         last_edited=last_edited,
-    #     )
-
-    # def parse_toc(self, data: dict, series_id: str) -> list[TocEntry]:
-    #     eplist = data.get("eplist", [])
-    #     isr18 = data.get("isr18")
-    #     base_url = BASE_URL.format(novel="novel18" if isr18 else "ncode")
-    #     entries: list[TocEntry] = []
-    #     index, category = 1, ""
-    #     for entry in eplist:
-    #         classes = entry.get("class", [])
-    #         if "p-eplist__chapter-title" in classes:
-    #             category = entry.get_text(strip=True)
-    #             continue
-    #         ep = entry.select_one("a.p-eplist__subtitle")
-    #         title = ep.get_text(strip=True) if ep else ""
-    #         href = ep.get("href", "") if ep else ""
-    #         episode_id = href.split("/")[2] if href else ""
-    #         update = entry.select_one("div.p-eplist__update")
-    #         published_at = (
-    #             (update.find(string=True, recursive=False) or "").strip()
-    #             if update
-    #             else ""
-    #         )
-    #         published_on = published_at.split(" ")[0].replace("/", "-")
-    #         entries.append(
-    #             TocEntry(
-    #                 index=index,
-    #                 title=title,
-    #                 url=urljoin(base_url, href),
-    #                 episode_id=episode_id,
-    #                 category=category,
-    #                 published_on=published_on,
-    #             )
-    #         )
-    #         index += 1
-    #     return entries
-
     def _fetch_next_data(self, url: str) -> dict:
         series_id = parse_series_id(url)
         parsed = urlparse(url)

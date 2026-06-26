@@ -15,7 +15,14 @@ PROMO_RE = re.compile(
     re.IGNORECASE,
 )
 SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇—―─·・…〜~＝=\-_]+$")
+
 EPOCH = datetime.fromtimestamp(0, timezone.utc).isoformat().replace("+00:00", "Z")
+
+SITE = {
+    r"ncode": {"site": "naro", "color": "#18b7cd"},
+    r"novel18": {"site": "naro18", "color": "#db7dc4"},
+    r"kakuyomu": {"site": "kakuyomu", "color": "#0099cc"},
+}
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -138,9 +145,10 @@ def escape(text: str) -> str:
     return text
 
 
-def generate_cover(
-    title: str, author: str, bg_path: str = ASSETS_DIR / "cover.png"
-) -> bytes:
+def generate_cover(title: str, author: str, site: dict) -> bytes:
+    identifier = site.get("site")
+    color = site.get("color")
+    bg_path = ASSETS_DIR / f"cover_{identifier}.png"
     img = Image.open(bg_path).convert("RGB")
     draw = ImageDraw.Draw(img)
     # expects 1400x2000
@@ -153,7 +161,6 @@ def generate_cover(
         font_title = ImageFont.load_default()
         font_author = ImageFont.load_default()
 
-    BLUE = "#0099cc"
     DARK = "#1a1a1a"
     GREY = "#444444"
 
@@ -182,7 +189,7 @@ def generate_cover(
         y += line_h + line_gap
 
     y += 20
-    draw.rectangle([TEXT_X_START, y, TEXT_X_START + TEXT_WIDTH, y + 4], fill=BLUE)
+    draw.rectangle([TEXT_X_START, y, TEXT_X_START + TEXT_WIDTH, y + 4], fill=color)
     y += 24
 
     bbox = draw.textbbox((0, 0), author, font=font_author)
