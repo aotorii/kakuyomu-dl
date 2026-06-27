@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import emoji
 import inflect
 from PIL import Image, ImageDraw, ImageFont
 
@@ -151,6 +152,10 @@ def get_spec(indices: list[int]) -> list[str]:
             spec.append(f"{indices[i]}-{indices[j]}")
         i = j + 1
     return spec
+
+
+def strip_emoji(text: str) -> str:
+    return emoji.replace_emoji(text, replace=" ").strip()
 
 
 def escape(text: str) -> str:

@@ -16,6 +16,7 @@ from utils import (
     get_spec,
     parse_plural,
     safe_filename,
+    strip_emoji,
 )
 
 logger = logging.getLogger(__name__)
@@ -180,7 +181,7 @@ class EpubBuilder:
         book.set_language(self.language)
         book.add_author(meta.author)
 
-        cover = generate_cover(title, meta.author, site)
+        cover = generate_cover(strip_emoji(title), strip_emoji(meta.author), site)
         book.set_cover("image/cover.jpg", cover)
 
         if meta.description:
