@@ -21,6 +21,7 @@ class TocEntry:
     category: str = ""
     published_on: str = ""
     locked: bool = False
+    meta: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -173,8 +174,12 @@ class BaseScraper(ABC):
         work_node = apollo.get(work_key, {})
 
         toc_refs = work_node.get("tableOfContentsV2", [])
+        prop_refs = work_node.get("property", [])
         entries: list[TocEntry] = []
         index = 1
+
+        prop_keys = [prop_ref.get("__ref", "") for prop_ref in prop_refs]
+        prop = {prop_key: work_node.get(prop_key) for prop_key in prop_keys}
 
         for toc_ref in toc_refs:
             toc_key = toc_ref.get("__ref", "")
@@ -218,6 +223,7 @@ class BaseScraper(ABC):
                         category=category,
                         published_on=published_on,
                         locked=locked,
+                        meta=prop,
                     )
                 )
                 index += 1

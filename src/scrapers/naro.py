@@ -18,6 +18,8 @@ CHAPTER_TITLE_SELECTOR = "div.c-announce span:not([class])"
 EPISODE_TITLE_SELECTOR = "h1.p-novel__title"
 EPISODE_BODY_SELECTOR = "div.js-novel-text"
 
+PROPERTY = ["is_short", "is_r18"]
+
 
 class NaroScraper(BaseScraper):
     EP_URL = "{work_url}" + "/{episode_id}"
@@ -39,7 +41,8 @@ class NaroScraper(BaseScraper):
 
     def fetch_episode(self, entry: TocEntry) -> Episode:
         logger.info(f"Fetching episode {entry.index}: {entry.title}")
-        soup = self._get_soup(entry.url)
+        url = entry.url.rstrip("/1") if entry.meta.get("is_short", 0) else entry.url
+        soup = self._get_soup(url)
 
         main_tag = soup.select_one(CHAPTER_TITLE_SELECTOR)
         category = main_tag.get_text(strip=True) if main_tag else entry.category
@@ -105,6 +108,8 @@ class NaroScraper(BaseScraper):
             parsed = urlparse(author_page)
             user_id = parsed.path.strip("/")
             data["userid"] = user_id
+        if data.get("novel_type", 1) - 1:
+            return data
         eplist, next_page = [], series_id
         while next_page:
             url = urljoin(base_url, next_page)
@@ -132,6 +137,7 @@ class NaroScraper(BaseScraper):
         apollo = {}
         user_account = {}
         work = {}
+        props = {}
         user_id = data.get("userid", "0000000") or "0000000"
         ncode = data.get("ncode", "").lower() or series_id
         url = WORK_URL.format(
@@ -147,8 +153,32 @@ class NaroScraper(BaseScraper):
         episode_count = data.get("general_all_no", 0)
         char_count = data.get("length", 0)
         edited = data.get("novelupdated_at", "")
-        eplist = data.get("eplist", [])
-        episodes, chapters, toc_ch, toc = self._parse_eplist(eplist)
+        is_short = data.get("novel_type", 1) - 1
+        if is_short:
+            episodes = {
+                "Episode:1": {
+                    "__typename": "Episode",
+                    "id": "1",
+                    "title": title.strip(),
+                    "publishedAt": (parse_date(published) or EPOCH).replace(
+                        "Z", ".000Z"
+                    ),
+                }
+            }
+            chapters = {}
+            toc_ch = {
+                "TableOfContentsChapter:": {
+                    "__typename": "TableOfContentsChapter",
+                    "id": "",
+                    "episodeUnions": [{"__ref": "Episode:1"}],
+                    "chapter": None,
+                }
+            }
+            toc = [{"__ref": "TableOfContentsChapter:"}]
+        else:
+            eplist = data.get("eplist", [])
+            episodes, chapters, toc_ch, toc = self._parse_eplist(eplist)
+        props.update({"is_short": is_short, "is_r18": data.get("isr18", 0)})
         user_account.update({
             "__typename": "UserAccount",
             "id": f"{user_id}",
@@ -170,6 +200,8 @@ class NaroScraper(BaseScraper):
             "editedAt": parse_date(edited) or EPOCH,
             "tableOfContentsV2": toc,
             "url": url,
+            "property": [{"__ref": prop} for prop in PROPERTY],
+            **props,
         })
         apollo.update({
             f"UserAccount:{user_id}": user_account,
@@ -231,7 +263,9 @@ class NaroScraper(BaseScraper):
                 "__typename": "Episode",
                 "id": ep_id,
                 "title": ep_title,
-                "publishedAt": parse_date(published_at).replace("Z", ".000Z"),
+                "publishedAt": (parse_date(published_at) or EPOCH).replace(
+                    "Z", ".000Z"
+                ),
             }
         if not toc_ch.get("TableOfContentsChapter:").get("episodeUnions"):
             del toc_ch["TableOfContentsChapter:"]
