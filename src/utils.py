@@ -137,6 +137,22 @@ def better_view(data: list[tuple[str, str]]) -> str:
     return result
 
 
+def get_spec(indices: list[int]) -> list[str]:
+    spec: list[str] = []
+    indices = sorted(list(set(indices)))
+    i = 0
+    while i < len(indices):
+        j = i
+        while j + 1 < len(indices) and indices[j + 1] == indices[j] + 1:
+            j += 1
+        if i == j:
+            spec.append(str(indices[i]))
+        else:
+            spec.append(f"{indices[i]}-{indices[j]}")
+        i = j + 1
+    return spec
+
+
 def escape(text: str) -> str:
     text = text.replace("&", "&amp;")
     text = text.replace("<", "&lt;")

@@ -13,6 +13,7 @@ from utils import (
     clean_title,
     generate_colophon,
     generate_cover,
+    get_spec,
     parse_plural,
     safe_filename,
 )
@@ -204,15 +205,13 @@ class EpubBuilder:
 
         epub_chapters: list[epub.EpubHtml] = []
         chapter_by_episode: dict[str, epub.EpubHtml] = {}
-        missing: list[str] = []
+        missing: list[int] = []
 
         for entry in toc_entries:
             xhtml_path = file_by_episode.get(entry.episode_id)
             if xhtml_path is None:
                 if not entry.locked:
-                    missing.append(
-                        f"[{entry.index}] {entry.title} ({entry.episode_id})"
-                    )
+                    missing.append(entry.index)
                 continue
 
             chapter = epub.EpubHtml(
@@ -235,7 +234,7 @@ class EpubBuilder:
         if missing:
             logger.warning(
                 f"{parse_plural('entry', len(missing), 'TOC ')} have no matching xhtml file "
-                f"(run fetch to download them):\n  " + "\n  ".join(missing)
+                f"(run 'fetch' to download them): [{','.join(get_spec(missing))}]"
             )
 
         any_category = any(e.category for e in toc_entries)
