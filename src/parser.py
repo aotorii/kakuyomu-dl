@@ -2,12 +2,13 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from scrapers import Episode, RawParagraph
+from scrapers import Episode, Image, RawParagraph
 from utils import SCENE_BREAK_RE
 
 
 class BlockType(Enum):
     PARAGRAPH = auto()
+    IMAGE = auto()
     SCENE_BREAK = auto()
     THEMATIC_BREAK = auto()
 
@@ -16,6 +17,7 @@ class BlockType(Enum):
 class Block:
     type: BlockType
     text: str = ""
+    image: Image | None = None
 
 
 @dataclass
@@ -65,6 +67,9 @@ class EpisodeParser:
         return [self.parse(ch) for ch in episodes]
 
     def _classify(self, raw: RawParagraph) -> Block | None:
+        if raw.image:
+            return Block(type=BlockType.IMAGE, image=raw.image)
+
         if raw.is_blank:
             return Block(type=BlockType.SCENE_BREAK)
 

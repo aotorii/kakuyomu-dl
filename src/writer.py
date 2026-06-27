@@ -2,9 +2,9 @@ import logging
 from pathlib import Path
 from string import Template
 
-from config import OUT_DIR
 from parser import BlockType, ParsedEpisode
-from utils import escape
+from scrapers import Image
+from utils import OUT_DIR, escape
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,9 @@ $body_content
 P_TEMPLATE = Template("<p>$text</p>")
 CATEGORY_TEMPLATE = Template('<p class="chapter-category">$text</p>')
 TITLE_TEMPLATE = Template('<h1 id="toc-$index" class="chapter-title">$text</h1>')
+IMAGE_TEMPLATE = Template(
+    '<p><img src="../image/$file_name" alt="挿絵" class="fit"/></p>'
+)
 BLANK_LINE = "<p><br/></p>"
 HORIZONTAL_LINE = '<hr class="horizontal-break" />'
 
@@ -40,22 +43,24 @@ class XhtmlWriter:
     def __init__(
         self,
         series_id: str = "",
-        out_dir: str | Path = OUT_DIR / "{series_id}/xhtml",
+        out_dir: str | Path = OUT_DIR / "{series_id}",
         filename_tmpl: str = "{index:04d}_{episode_id}.xhtml",
         overwrite: bool = True,
     ):
         self.out_dir = Path(str(out_dir).format(series_id=series_id))
         self.filename_tmpl = filename_tmpl
         self.overwrite = overwrite
+        self.series_id = series_id
 
     def write(self, episode: ParsedEpisode) -> Path:
-        self.out_dir.mkdir(parents=True, exist_ok=True)
+        xhtml_dir = self.out_dir / "xhtml"
+        xhtml_dir.mkdir(parents=True, exist_ok=True)
 
         filename = self.filename_tmpl.format(
             index=episode.index,
             episode_id=episode.episode_id,
         )
-        path = self.out_dir / filename
+        path = xhtml_dir / filename
 
         if path.exists() and not self.overwrite:
             logger.info(f"Skipping existing file: {path}")
@@ -101,9 +106,19 @@ class XhtmlWriter:
                 lines.append(HORIZONTAL_LINE)
                 lines.append(BLANK_LINE)
 
+            elif block.type == BlockType.IMAGE:
+                image = block.image
+                lines.append(IMAGE_TEMPLATE.substitute(file_name=f"{image.src}.jpg"))
+                self._painter(image)
+
         body_content = "\n".join(lines)
 
         return XHTML_TEMPLATE.substitute(
             title=escape(episode.title),
             body_content=body_content,
         )
+
+    def _painter(self, image: Image) -> None:
+        path = self.out_dir / f"image/{image.src}.jpg"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(image.content)

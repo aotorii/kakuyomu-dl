@@ -131,9 +131,10 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     config = fetch_config_init(FetchConfig(), args)
     scraper = get_scraper(series_id, args.delay)
     parser = EpisodeParser()
+    out_dir = config.out_dir / series_id
     xhtml_dir = config.out_dir / series_id / "xhtml"
     writer = XhtmlWriter(
-        series_id=series_id, out_dir=xhtml_dir, overwrite=config.overwrite
+        series_id=series_id, out_dir=out_dir, overwrite=config.overwrite
     )
 
     print("Fetching work metadata and table of contents…")
@@ -198,7 +199,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
             else ""
         )
         written = (
-            f"{parse_plural('file', len(paths))} written to '{xhtml_dir}'."
+            f"{parse_plural('file', len(paths))} written to '{out_dir}'."
             if len(paths)
             else "0 files written."
         )
@@ -208,7 +209,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         print("Building EPUB…")
         builder = EpubBuilder(
             series_id=series_id,
-            xhtml_dir=xhtml_dir,
+            xhtml_dir=out_dir,
             out_dir=config.epub_out_dir,
             clean_title=config.clean_title,
         )
@@ -221,13 +222,13 @@ def cmd_epub(args: argparse.Namespace) -> None:
     scraper = get_scraper(series_id, args.delay)
     apollo = cache.load(series_id)
     config = epub_config_init(EpubConfig(), args)
-    xhtml_dir = config.xhtml_dir / series_id / "xhtml"
+    xhtml_dir = config.xhtml_dir / series_id
     filename = args.filename or None
 
     print("Fetching work metadata and table of contents…")
     if not apollo:
         raise FileNotFoundError(
-            f"No matching toc cache found in '{OUT_DIR / series_id}' "
+            f"No matching toc cache found in '{xhtml_dir}' "
             f"for work {series_id}. Run 'fetch' first."
         )
     meta = scraper.parse_work_meta(apollo, series_id)
@@ -372,7 +373,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kakuyomu-dl",
-        description="A downloader to download chapters from web novels and write into epub files.\n(Available sites: kakuyomu, naro)",
+        description="A downloader to download chapters from web novels and write into epub files. (Available sites: kakuyomu, naro)",
     )
     parser.add_argument(
         "--delay",
@@ -404,7 +405,7 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_p.add_argument(
         "--out-dir",
         metavar="DIR",
-        help="directory to write xhtml files into",
+        help="directory to write files into",
     )
     fetch_p.add_argument(
         "--no-overwrite",
@@ -430,7 +431,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     epub_p = subparsers.add_parser(
         "epub",
-        help="build an epub from already fetched xhtml files",
+        help="build an epub from already fetched episodes",
     )
     epub_p.add_argument(
         "series",
@@ -439,7 +440,7 @@ def build_parser() -> argparse.ArgumentParser:
     epub_p.add_argument(
         "--xhtml-dir",
         metavar="DIR",
-        help="directory containing the xhtml episode files",
+        help="directory containing the episode files",
     )
     epub_p.add_argument(
         "--out-dir",

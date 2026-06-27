@@ -39,9 +39,17 @@ class WorkMeta:
 
 
 @dataclass
+class Image:
+    content: bytes
+    media_type: str
+    src: str
+
+
+@dataclass
 class RawParagraph:
     text: str
-    is_blank: bool
+    image: Image | None = None
+    is_blank: bool = False
     is_hr: bool = False
 
 

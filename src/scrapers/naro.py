@@ -4,14 +4,15 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup, Tag
 
-from scrapers import BaseScraper, Episode, RawParagraph, TocEntry
-from utils import EPOCH, parse_date, parse_series_id, parse_status
+from scrapers import BaseScraper, Episode, Image, RawParagraph, TocEntry
+from utils import EPOCH, MITE_RE, parse_date, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://{novel}.syosetu.com/"
 WORK_URL = BASE_URL + "{work_id}"
 META_URL = "https://api.syosetu.com/{api}/api/?ncode={work_id}&out=json"
+MITE_URL = "https://{uid}.mitemin.net/userpageimage/viewimage/icode/{img_id}"
 
 CHAPTER_TITLE_SELECTOR = "div.c-announce span:not([class])"
 EPISODE_TITLE_SELECTOR = "h1.p-novel__title"
@@ -49,15 +50,30 @@ class NaroScraper(BaseScraper):
         body_tags = soup.select(EPISODE_BODY_SELECTOR)
         raw_paragraphs: list[RawParagraph] = []
         if body_tags:
+            counter = 0
             for i, body_tag in enumerate(body_tags):
                 for p in body_tag.find_all("p"):
+                    img = p.select_one("a")
+                    if img:
+                        src = img.get("href", "")
+                        content, content_type = self._mite_chan(src)
+                        counter += 1
+                        raw_paragraphs.append(
+                            RawParagraph(
+                                text="",
+                                image=Image(
+                                    content=content,
+                                    media_type=content_type,
+                                    src=f"{entry.index}_{counter}",
+                                ),
+                            )
+                        )
+                        continue
                     is_blank = not p.get_text(strip=True)
                     text = self._extract_text(p, is_blank=is_blank)
                     raw_paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
                 if i < len(body_tags) - 1:
-                    raw_paragraphs.append(
-                        RawParagraph(text="", is_blank=False, is_hr=True)
-                    )
+                    raw_paragraphs.append(RawParagraph(text="", is_hr=True))
         else:
             logger.warning(f"Body not found for episode {entry.episode_id}")
 
@@ -224,3 +240,14 @@ class NaroScraper(BaseScraper):
                 toc.append({"__ref": key})
 
         return episodes, chapters, toc_ch, toc
+
+    def _mite_chan(self, src: str) -> tuple[bytes, str]:
+        match = MITE_RE.search(src)
+        if not match:
+            raise ValueError(f"Unknown image source: {src!r}")
+        uid, img_id = match.groups()
+        img_url = MITE_URL.format(uid=uid, img_id=img_id)
+        r = self.session.get(img_url, timeout=self.timeout)
+        r.raise_for_status()
+        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        return r.content, content_type

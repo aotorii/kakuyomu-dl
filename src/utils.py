@@ -15,6 +15,7 @@ PROMO_RE = re.compile(
     re.IGNORECASE,
 )
 SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇—―─·・…〜~＝=\-_]+$")
+MITE_RE = re.compile(r"//(\d+)\.mitemin\.net/(i\d+)/")
 
 EPOCH = datetime.fromtimestamp(0, timezone.utc).isoformat().replace("+00:00", "Z")
 

@@ -134,8 +134,12 @@ blockquote {
 img.fit {
   max-width: 100%;
   max-height: 100vh;
+  width: auto;
+  height: auto;
   display: block;
   margin: 0 auto;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 div.page-break {
@@ -149,7 +153,7 @@ class EpubBuilder:
     def __init__(
         self,
         series_id: str = "",
-        xhtml_dir: str | Path = OUT_DIR / "{series_id}/xhtml",
+        xhtml_dir: str | Path = OUT_DIR / "{series_id}",
         out_dir: str | Path = EPUB_DIR,
         filename: str | None = None,
         clean_title: bool = False,
@@ -163,6 +167,8 @@ class EpubBuilder:
 
     def build(self, meta: WorkMeta, toc_entries: list[TocEntry]) -> Path:
         self.out_dir.mkdir(parents=True, exist_ok=True)
+        xhtml_dir = self.xhtml_dir / "xhtml"
+        image_dir = self.xhtml_dir / "image"
 
         book = epub.EpubBook()
         title = clean_title(meta.title, self.clean)
@@ -190,7 +196,7 @@ class EpubBuilder:
         book.add_item(css)
 
         file_by_episode: dict[str, Path] = {}
-        for xhtml_path in self.xhtml_dir.glob("*.xhtml"):
+        for xhtml_path in xhtml_dir.glob("*.xhtml"):
             stem = xhtml_path.stem
             parts = stem.split("_", 1)
             episode_id = parts[1] if len(parts) == 2 else stem
@@ -223,7 +229,7 @@ class EpubBuilder:
 
         if not epub_chapters:
             raise FileNotFoundError(
-                f"No matching xhtml files found in '{self.xhtml_dir}' "
+                f"No matching xhtml files found in '{xhtml_dir}' "
                 f"for work {meta.series_id}. Run 'fetch' first."
             )
         if missing:
@@ -273,6 +279,22 @@ class EpubBuilder:
 
             flush_section()
             book.toc = tuple(toc_nested)
+
+        if image_dir.exists():
+            for img_path in sorted(image_dir.glob("*")):
+                ext = img_path.suffix.lstrip(".")
+                media_type = {
+                    "jpg": "image/jpeg",
+                    "png": "image/png",
+                    "webp": "image/webp",
+                }.get(ext, "image/jpeg")
+                epub_img = epub.EpubImage(
+                    uid=f"img_{img_path.stem}",
+                    file_name=f"image/{img_path.name}",
+                    media_type=media_type,
+                    content=img_path.read_bytes(),
+                )
+                book.add_item(epub_img)
 
         colophon = epub.EpubHtml(
             uid="colophon",
