@@ -15,6 +15,7 @@ from utils import (
     generate_cover,
     get_spec,
     parse_plural,
+    process_image,
     safe_filename,
     strip_emoji,
 )
@@ -288,11 +289,12 @@ class EpubBuilder:
                     "png": "image/png",
                     "webp": "image/webp",
                 }.get(ext, "image/jpeg")
+                content = process_image(img_path.read_bytes())
                 epub_img = epub.EpubImage(
                     uid=f"img_{img_path.stem}",
                     file_name=f"image/{img_path.name}",
                     media_type=media_type,
-                    content=img_path.read_bytes(),
+                    content=content,
                 )
                 book.add_item(epub_img)
 

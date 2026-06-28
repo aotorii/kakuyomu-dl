@@ -167,6 +167,16 @@ def escape(text: str) -> str:
     return text
 
 
+def process_image(content: bytes, max_width: int = 1200) -> bytes:
+    img = Image.open(io.BytesIO(content)).convert("RGB")
+    if img.width > max_width:
+        ratio = max_width / img.width
+        img = img.resize((max_width, int(img.height * ratio)), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85, optimize=True)
+    return buf.getvalue()
+
+
 def generate_cover(title: str, author: str, site: dict) -> bytes:
     identifier = site.get("site")
     color = site.get("color")
