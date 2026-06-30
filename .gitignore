@@ -222,3 +222,6 @@ __marimo__/
 
 # Output
 out/
+
+# Cookies
+cf_cookies.json

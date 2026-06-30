@@ -10,7 +10,7 @@ import cache
 from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
-from scrapers import BaseScraper, KakuyomuScraper, NaroScraper, TocEntry
+from scrapers import BaseScraper, HamelnScraper, KakuyomuScraper, NaroScraper, TocEntry
 from utils import (
     better_view,
     display_title,
@@ -29,8 +29,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 SCRAPERS = {
-    r"\d+": KakuyomuScraper,
+    r"\d{15,}": KakuyomuScraper,
     r"n\d{4}[a-z]{1,2}": NaroScraper,
+    r"\d{1,8}": HamelnScraper,
 }
 
 
@@ -495,17 +496,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     bookmark_p.set_defaults(func=cmd_bookmark)
 
-    # debug_p = subparsers.add_parser("debug", help="vanilla")
-    # debug_p.add_argument(
-    #     "series",
-    #     help="no help",
-    # )
-    # debug_p.set_defaults(func=cmd_debug)
+    debug_p = subparsers.add_parser("debug", help="vanilla")
+    debug_p.add_argument(
+        "series",
+        help="no help",
+    )
+    debug_p.set_defaults(func=cmd_debug)
 
     return parser
 
 
-# def cmd_debug(args: argparse.Namespace) -> None:
+def cmd_debug(args: argparse.Namespace) -> None:
+    series_id = parse_series_id(args.series)
+    scraper = get_scraper(series_id, args.delay)
+    data = scraper._fetch_next_data(scraper._get_url(series_id))
+    print(data)
 
 
 def main() -> None:

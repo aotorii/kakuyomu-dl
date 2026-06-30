@@ -1,4 +1,5 @@
 import io
+import json
 import re
 import sys
 import textwrap
@@ -35,6 +36,8 @@ EPUB_DIR = OUT_DIR / "epub"
 OUT_DIR.mkdir(exist_ok=True)
 EPUB_DIR.mkdir(exist_ok=True)
 
+COOKIES = ROOT / "cf_cookies.json"
+
 
 @dataclass
 class WorkMeta:
@@ -62,7 +65,9 @@ def parse_status(status: int) -> str:
 
 def parse_series_id(value: str) -> str:
     value = value.strip().rstrip("/")
-    match = re.search(r"(?:kakuyomu\.jp/works|syosetu\.com)/([\da-z]+)", value)
+    match = re.search(
+        r"(?:kakuyomu\.jp/works|syosetu\.com|syosetu\.org/novel)/([\da-z]+)", value
+    )
     if match:
         return match.group(1)
     if re.fullmatch(r"[\da-z]+", value, re.IGNORECASE):
@@ -152,6 +157,15 @@ def get_spec(indices: list[int]) -> list[str]:
             spec.append(f"{indices[i]}-{indices[j]}")
         i = j + 1
     return spec
+
+
+def load_cookies(file: str | Path = COOKIES) -> dict:
+    if not file.exists():
+        raise FileNotFoundError(
+            f"Cookies for clearing cloudflare challenges not found: {file}."
+            f"Export it first."
+        )
+    return json.loads(file.read_text())
 
 
 def strip_emoji(text: str) -> str:
