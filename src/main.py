@@ -509,7 +509,8 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_debug(args: argparse.Namespace) -> None:
     series_id = parse_series_id(args.series)
     scraper = get_scraper(series_id, args.delay)
-    data = scraper._fetch_next_data(scraper._get_url(series_id))
+    data = scraper._get_url(series_id)
+    # data = scraper._fetch_next_data(args.series)
     print(data)
 
 

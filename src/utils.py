@@ -78,16 +78,22 @@ def parse_series_id(value: str) -> str:
 
 def parse_date(date: str) -> str | None:
     JST = timezone(timedelta(hours=9))
+    FORMAT = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%SZ", "%Y年%m月%d日 %H:%M:%S"]
     if not date:
         return None
-    return (
-        datetime
-        .strptime(date, "%Y-%m-%d %H:%M:%S")
-        .replace(tzinfo=JST)
-        .astimezone(timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    for fmt in FORMAT:
+        try:
+            return (
+                datetime
+                .strptime(date, fmt)
+                .replace(tzinfo=JST)
+                .astimezone(timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+        except ValueError:
+            continue
+    raise ValueError(f"Unknown date format: {date}")
 
 
 def clean_title(title: str, clean: bool) -> str:

@@ -130,7 +130,6 @@ class NaroScraper(BaseScraper):
         response.raise_for_status()
         if "novel18" in response.url:
             url = WORK_URL.format(novel="novel18", work_id=series_id)
-            return url
         return url
 
     def _apolloize(self, data: dict, series_id: str) -> dict:
@@ -245,7 +244,7 @@ class NaroScraper(BaseScraper):
             ep = tag.select_one("a.p-eplist__subtitle")
             ep_title = ep.get_text(strip=True) if ep else ""
             href = ep.get("href", "") if ep else ""
-            ep_id = href.split("/")[2] if href else ""
+            ep_id = href.strip("/").split("/")[-1] if href else ""
             update = tag.select_one("div.p-eplist__update")
             published_at = (
                 (update.find(string=True, recursive=False) or "")
@@ -272,7 +271,6 @@ class NaroScraper(BaseScraper):
         for key, entry in toc_ch.items():
             if entry.get("episodeUnions"):
                 toc.append({"__ref": key})
-
         return episodes, chapters, toc_ch, toc
 
     def _mite_chan(self, src: str) -> tuple[bytes, str]:
