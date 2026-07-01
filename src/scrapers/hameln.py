@@ -3,7 +3,7 @@ import re
 
 from scraper import PageSoup, Scraper, default_config
 
-from scrapers import BaseScraper, TocEntry
+from scrapers import BaseScraper, Episode, RawParagraph, TocEntry
 from utils import EPOCH, load_cookies, parse_date, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)
@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://{novel}.org/"
 WORK_URL = BASE_URL + "novel/{work_id}"
 META_URL = BASE_URL + "?mode=ss_detail&nid={work_id}"
+
+CHAPTER_TITLE_SELECTOR = ""
+EPISODE_TITLE_SELECTOR = ""
+EPISODE_BODY_SELECTOR = "div#honbun"
 
 META_FILTER = [
     "タイトル",
@@ -47,8 +51,39 @@ class HamelnScraper(BaseScraper):
             cookies=self.cookies,
         )
 
-    def fetch_episode(self, entry: TocEntry):
-        return
+    def fetch_episode(self, entry: TocEntry) -> Episode:
+        logger.info(f"Fetching episode {entry.index}: {entry.title}")
+        url = entry.url.rstrip("/1") if entry.meta.get("is_short", 0) else entry.url
+        soup = self._get_soup_cf(url)
+
+        category = entry.category
+        title = entry.title
+
+        body_tag = soup.select_one(EPISODE_BODY_SELECTOR)
+        raw_paragraphs: list[RawParagraph] = []
+        if body_tag:
+            for p in body_tag.find_all("p"):
+                img = p.select_one("a")
+                if img:
+                    raw_paragraphs.append(
+                        RawParagraph(
+                            text="【挿絵表示】",
+                        )
+                    )
+                    continue
+                is_blank = not p.get_text(strip=True)
+                text = self._extract_text(p.tag, is_blank=is_blank)
+                raw_paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
+        else:
+            logger.warning(f"Body not found for episode {entry.episode_id}")
+
+        return Episode(
+            index=entry.index,
+            title=title,
+            category=category,
+            episode_id=entry.episode_id,
+            raw_paragraphs=raw_paragraphs,
+        )
 
     def _fetch_next_data(self, url: str) -> dict:
         series_id = parse_series_id(url)
@@ -105,7 +140,7 @@ class HamelnScraper(BaseScraper):
         keyword_2 = meta.get("タグ", "").split()
         keyword = keyword_1 + [k for k in keyword_2 if k not in keyword_1]
         status_info = meta.get("話数", "")
-        status = 0 if "完結" or "短編" in status_info else 1
+        status = 0 if "完結" in status_info or "短編" in status_info else 1
         is_short = 1 if "短編" in status_info else 0
         episode_count = int(status_info.rstrip("話").split()[-1]) if status_info else 0
         char_count = int(
@@ -149,6 +184,7 @@ class HamelnScraper(BaseScraper):
             "title": title.strip(),
             "author": {"__ref": f"UserAccount:{user_id}"},
             "publishedAt": parse_date(published) or EPOCH,
+            "lastEpisodePublishedAt": parse_date(last_published) or EPOCH,
             "introduction": introduction.strip(),
             "tagLabels": keyword,
             "serialStatus": parse_status(status).upper(),
