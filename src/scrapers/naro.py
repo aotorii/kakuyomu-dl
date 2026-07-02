@@ -56,9 +56,10 @@ class NaroScraper(BaseScraper):
             counter = 0
             for i, body_tag in enumerate(body_tags):
                 for p in body_tag.find_all("p"):
-                    img = p.select_one("a")
-                    if img:
-                        src = img.get("href", "")
+                    link_tag = p.select_one("a")
+                    img_tag = p.select_one("a img")
+                    if img_tag:
+                        src = link_tag.get("href", "")
                         content, content_type = self._mite_chan(src)
                         counter += 1
                         raw_paragraphs.append(

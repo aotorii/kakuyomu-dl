@@ -1,6 +1,6 @@
 import logging
-import re
 
+from bs4 import Tag
 from scraper import PageSoup, Scraper, default_config
 
 from scrapers import BaseScraper, Episode, RawParagraph, TocEntry
@@ -8,13 +8,15 @@ from utils import EPOCH, load_cookies, parse_date, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)
 
+SITE = "https://syosetu.org"
+
 BASE_URL = "https://{novel}.org/"
 WORK_URL = BASE_URL + "novel/{work_id}"
 META_URL = BASE_URL + "?mode=ss_detail&nid={work_id}"
 
-CHAPTER_TITLE_SELECTOR = ""
-EPISODE_TITLE_SELECTOR = ""
-EPISODE_BODY_SELECTOR = "div#honbun"
+MAEGAKI_SELECTOR = "div#maegaki"
+HONBUN_SELECTOR = "div#honbun"
+ATOGAKI_SELECTOR = "div#atogaki"
 
 META_FILTER = [
     "タイトル",
@@ -42,10 +44,9 @@ class HamelnScraper(BaseScraper):
         self.cookies = {"over18": "off"}
         self.config = default_config()
         self.config.min_request_interval = self.delay
-        base = BASE_URL.format(novel="syosetu")
-        self.scraper = Scraper(origin=base, config=self.config)
+        self.scraper = Scraper(origin=SITE, config=self.config)
         self.scraper.apply_browser_clearance(
-            base,
+            SITE,
             cf_clearance=self.cf_clearance,
             user_agent=self.user_agent,
             cookies=self.cookies,
@@ -56,15 +57,24 @@ class HamelnScraper(BaseScraper):
         url = entry.url.rstrip("/1") if entry.meta.get("is_short", 0) else entry.url
         soup = self._get_soup_cf(url)
 
-        category = entry.category
-        title = entry.title
+        start_tag = soup.select_one("span#analytics_start").tag
+        title_tag = start_tag.find_previous_sibling()
+        title_text = list(title_tag.stripped_strings or [])
+        category = title_text[0] if len(title_text) > 1 else entry.category
+        title = title_text[-1] if title_text else entry.title
 
-        body_tag = soup.select_one(EPISODE_BODY_SELECTOR)
+        mae_tag = soup.select_one(MAEGAKI_SELECTOR).tag
+        maegaki = self._parse_paragraph(mae_tag) if mae_tag else []
+
+        ato_tag = soup.select_one(ATOGAKI_SELECTOR).tag
+        atogaki = self._parse_paragraph(ato_tag) if ato_tag else []
+
+        body_tag = soup.select_one(HONBUN_SELECTOR).tag
         raw_paragraphs: list[RawParagraph] = []
         if body_tag:
             for p in body_tag.find_all("p"):
-                img = p.select_one("a")
-                if img:
+                img_tag = p.select_one('a[alt="挿絵"]')
+                if img_tag:
                     raw_paragraphs.append(
                         RawParagraph(
                             text="【挿絵表示】",
@@ -72,11 +82,12 @@ class HamelnScraper(BaseScraper):
                     )
                     continue
                 is_blank = not p.get_text(strip=True)
-                text = self._extract_text(p.tag, is_blank=is_blank)
+                text = self._extract_text(p, is_blank=is_blank)
                 raw_paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
         else:
             logger.warning(f"Body not found for episode {entry.episode_id}")
 
+        raw_paragraphs = maegaki + raw_paragraphs + atogaki
         return Episode(
             index=entry.index,
             title=title,
@@ -92,8 +103,9 @@ class HamelnScraper(BaseScraper):
             meta_url, is_r18 = META_URL.format(novel="h.syosetu", work_id=series_id), 1
         soup = self._get_soup_cf(meta_url)
         meta = soup.select("table.table1")
+        meta = [table.tag for table in meta]
         soup = self._get_soup_cf(url)
-        eplist = soup.select_one("div table")
+        eplist = soup.select_one("div table").tag
         data = {}
         data.update({"meta": meta, "eplist": eplist, "is_r18": is_r18})
 
@@ -125,15 +137,9 @@ class HamelnScraper(BaseScraper):
         )
         title = meta.get("タイトル", f"Work {series_id}")
         published = meta.get("掲載開始", "")
-        published = (
-            re.sub(r"\(.+?\)", "", published).strip() + ":00" if published else ""
-        )
+        published = published + ":00" if published else ""
         last_published = meta.get("最新投稿", "")
-        last_published = (
-            re.sub(r"\(.+?\)", "", last_published).strip() + ":00"
-            if last_published
-            else ""
-        )
+        last_published = last_published + ":00" if last_published else ""
         activity_name = meta.get("作者", "Unknown")
         introduction = meta.get("あらすじ", "")
         keyword_1 = meta.get("必須タグ", "").split()
@@ -205,7 +211,7 @@ class HamelnScraper(BaseScraper):
         })
         return apollo
 
-    def _parse_metatable(self, data: list[PageSoup]) -> dict:
+    def _parse_metatable(self, data: list[Tag]) -> dict:
         meta = {}
         for table in data:
             tags = table.select("tr td")
@@ -219,7 +225,9 @@ class HamelnScraper(BaseScraper):
                     meta[label] = value
                     continue
                 if label.startswith("あらすじ"):
-                    value = self._get_text_with_br(tag)
+                    for br in tag.find_all("br"):
+                        br.replace_with("\n")
+                    value = tag.get_text().strip()
                     meta[label] = value
                     continue
                 if label.startswith("作者"):
@@ -234,7 +242,7 @@ class HamelnScraper(BaseScraper):
                     meta[label] = value
         return meta
 
-    def _parse_eplist(self, eplist: PageSoup | None) -> tuple[dict, dict, dict, list]:
+    def _parse_eplist(self, eplist: Tag | None) -> tuple[dict, dict, dict, list]:
         episodes = {}
         chapters = {}
         toc_ch = {}
@@ -253,13 +261,11 @@ class HamelnScraper(BaseScraper):
                 ep_title = ep_tag.get_text(strip=True)
                 href = ep_tag.get("href", "")
                 ep_id = href.strip(".html").split("/")[-1] if href else ""
-                update = tag.select_one("nobr")
-                published_at = update.get_text(strip=True) or "" if update else ""
+                update = tag.select_one("nobr time") or tag.select_one("nobr")
                 published_at = (
-                    re.sub(r"\(.+?\)", "", published_at).rstrip("(改)") + ":00"
-                    if published_at
-                    else ""
+                    update.find(string=True, recursive=False) or "" if update else ""
                 )
+                published_at = published_at + ":00" if published_at else ""
                 toc_ch[f"TableOfContentsChapter:{ch_id}"]["episodeUnions"].append({
                     "__ref": f"Episode:{ep_id}"
                 })
@@ -298,8 +304,35 @@ class HamelnScraper(BaseScraper):
         soup = self.scraper.get_soup(url, timeout=(self.timeout, 301))
         return soup
 
-    def _get_text_with_br(self, tag: PageSoup) -> str:
-        html = tag.decode_contents()
-        html = re.sub(r"<br\s*/?>", "\n", html)
-        html = re.sub(r"<[^>]+>", "", html)
-        return html.strip()
+    def _parse_paragraph(self, tag: Tag) -> list[RawParagraph]:
+        paragraphs: list[RawParagraph] = []
+        last_child = None
+        for child in tag.children:
+            if isinstance(child, str):
+                if paragraphs and last_child not in ["br", "hr"]:
+                    paragraphs[-1].text += child
+                else:
+                    is_blank = not child.strip()
+                    paragraphs.append(RawParagraph(text=child, is_blank=is_blank))
+            elif child.name == "br":
+                if last_child == "br":
+                    paragraphs.append(RawParagraph(text="", is_blank=True))
+            elif child.name == "hr":
+                if paragraphs and paragraphs[-1].is_blank:
+                    paragraphs.pop()
+                paragraphs.append(RawParagraph(text="", is_hr=True))
+            elif child.name == "a":
+                outer = str(child)
+                if paragraphs and last_child not in ["br", "hr"]:
+                    paragraphs[-1].text += outer
+                else:
+                    paragraphs.append(RawParagraph(text=outer, is_blank=False))
+            else:
+                is_blank = not child.get_text(strip=True)
+                text = self._extract_text(child, is_blank)
+                if paragraphs and last_child not in ["br", "hr"]:
+                    paragraphs[-1].text += text
+                else:
+                    paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
+            last_child = child.name
+        return paragraphs
