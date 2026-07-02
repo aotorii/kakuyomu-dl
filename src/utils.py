@@ -25,6 +25,7 @@ SITE = {
     r"ncode": {"site": "naro", "color": "#18b7cd"},
     r"novel18": {"site": "naro18", "color": "#db7dc4"},
     r"kakuyomu": {"site": "kakuyomu", "color": "#0099cc"},
+    r"syosetu\.org": {"site": "hameln", "color": "#000000"},
 }
 
 ROOT = Path(__file__).resolve().parent.parent

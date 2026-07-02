@@ -8,7 +8,7 @@ from utils import EPOCH, load_cookies, parse_date, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)
 
-SITE = "https://syosetu.org"
+TEST_URL = "https://syosetu.org"
 
 BASE_URL = "https://{novel}.org/"
 WORK_URL = BASE_URL + "novel/{work_id}"
@@ -44,9 +44,9 @@ class HamelnScraper(BaseScraper):
         self.cookies = {"over18": "off"}
         self.config = default_config()
         self.config.min_request_interval = self.delay
-        self.scraper = Scraper(origin=SITE, config=self.config)
+        self.scraper = Scraper(origin=TEST_URL, config=self.config)
         self.scraper.apply_browser_clearance(
-            SITE,
+            TEST_URL,
             cf_clearance=self.cf_clearance,
             user_agent=self.user_agent,
             cookies=self.cookies,
@@ -65,10 +65,10 @@ class HamelnScraper(BaseScraper):
 
         counter = 0
         mae_tag = soup.select_one(MAEGAKI_SELECTOR).tag
-        maegaki, counter = (
-            self._parse_paragraph(mae_tag, entry.index, counter) if mae_tag else [],
-            counter,
-        )
+        if mae_tag:
+            maegaki, counter = self._parse_paragraph(mae_tag, entry.index, counter)
+        else:
+            maegaki = []
 
         body_tag = soup.select_one(HONBUN_SELECTOR).tag
         raw_paragraphs: list[RawParagraph] = []
@@ -88,9 +88,10 @@ class HamelnScraper(BaseScraper):
             logger.warning(f"Body not found for episode {entry.episode_id}")
 
         ato_tag = soup.select_one(ATOGAKI_SELECTOR).tag
-        atogaki = (
-            self._parse_paragraph(ato_tag, entry.index, counter) if ato_tag else []
-        )
+        if ato_tag:
+            atogaki, _ = self._parse_paragraph(ato_tag, entry.index, counter)
+        else:
+            atogaki = []
 
         raw_paragraphs = maegaki + raw_paragraphs + atogaki
         return Episode(
@@ -345,7 +346,7 @@ class HamelnScraper(BaseScraper):
     def _get_image(self, tag: Tag, index: int, counter: int) -> RawParagraph:
         src = tag.get("href", "")
         if not src:
-            raise ValueError(f"Unknown image source: {src!r}")
+            raise ValueError(f"Invalid image tag: {str(tag)!r}")
         r = self.scraper.get(src, timeout=self.timeout)
         r.raise_for_status()
         content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
