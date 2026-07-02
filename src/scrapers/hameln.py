@@ -3,7 +3,7 @@ import logging
 from bs4 import Tag
 from scraper import PageSoup, Scraper, default_config
 
-from scrapers import BaseScraper, Episode, RawParagraph, TocEntry
+from scrapers import BaseScraper, Episode, Image, RawParagraph, TocEntry
 from utils import EPOCH, load_cookies, parse_date, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)
@@ -63,11 +63,12 @@ class HamelnScraper(BaseScraper):
         category = title_text[0] if len(title_text) > 1 else entry.category
         title = title_text[-1] if title_text else entry.title
 
+        counter = 0
         mae_tag = soup.select_one(MAEGAKI_SELECTOR).tag
-        maegaki = self._parse_paragraph(mae_tag) if mae_tag else []
-
-        ato_tag = soup.select_one(ATOGAKI_SELECTOR).tag
-        atogaki = self._parse_paragraph(ato_tag) if ato_tag else []
+        maegaki, counter = (
+            self._parse_paragraph(mae_tag, entry.index, counter) if mae_tag else [],
+            counter,
+        )
 
         body_tag = soup.select_one(HONBUN_SELECTOR).tag
         raw_paragraphs: list[RawParagraph] = []
@@ -75,10 +76,9 @@ class HamelnScraper(BaseScraper):
             for p in body_tag.find_all("p"):
                 img_tag = p.select_one('a[alt="挿絵"]')
                 if img_tag:
+                    counter += 1
                     raw_paragraphs.append(
-                        RawParagraph(
-                            text="【挿絵表示】",
-                        )
+                        self._get_image(img_tag, entry.index, counter)
                     )
                     continue
                 is_blank = not p.get_text(strip=True)
@@ -86,6 +86,11 @@ class HamelnScraper(BaseScraper):
                 raw_paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
         else:
             logger.warning(f"Body not found for episode {entry.episode_id}")
+
+        ato_tag = soup.select_one(ATOGAKI_SELECTOR).tag
+        atogaki = (
+            self._parse_paragraph(ato_tag, entry.index, counter) if ato_tag else []
+        )
 
         raw_paragraphs = maegaki + raw_paragraphs + atogaki
         return Episode(
@@ -108,12 +113,6 @@ class HamelnScraper(BaseScraper):
         eplist = soup.select_one("div table").tag
         data = {}
         data.update({"meta": meta, "eplist": eplist, "is_r18": is_r18})
-
-        # dates = eplist.select("nobr")
-        # out = []
-        # for date in dates:
-        #     out.append(date.find(string=True, recursive=False) or "oops")
-        #     out.append(date.get_text() or "oops")
         return data
 
     def _get_url(self, series_id: str) -> str:
@@ -304,7 +303,9 @@ class HamelnScraper(BaseScraper):
         soup = self.scraper.get_soup(url, timeout=(self.timeout, 301))
         return soup
 
-    def _parse_paragraph(self, tag: Tag) -> list[RawParagraph]:
+    def _parse_paragraph(
+        self, tag: Tag, index: int, counter: int = 0
+    ) -> tuple[list[RawParagraph], int]:
         paragraphs: list[RawParagraph] = []
         last_child = None
         for child in tag.children:
@@ -322,11 +323,15 @@ class HamelnScraper(BaseScraper):
                     paragraphs.pop()
                 paragraphs.append(RawParagraph(text="", is_hr=True))
             elif child.name == "a":
-                outer = str(child)
-                if paragraphs and last_child not in ["br", "hr"]:
-                    paragraphs[-1].text += outer
+                if child.get("alt") == "挿絵":
+                    counter += 1
+                    paragraphs.append(self._get_image(child, index, counter))
                 else:
-                    paragraphs.append(RawParagraph(text=outer, is_blank=False))
+                    outer = str(child)
+                    if paragraphs and last_child not in ["br", "hr"]:
+                        paragraphs[-1].text += outer
+                    else:
+                        paragraphs.append(RawParagraph(text=outer, is_blank=False))
             else:
                 is_blank = not child.get_text(strip=True)
                 text = self._extract_text(child, is_blank)
@@ -335,4 +340,20 @@ class HamelnScraper(BaseScraper):
                 else:
                     paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
             last_child = child.name
-        return paragraphs
+        return paragraphs, counter
+
+    def _get_image(self, tag: Tag, index: int, counter: int) -> RawParagraph:
+        src = tag.get("href", "")
+        if not src:
+            raise ValueError(f"Unknown image source: {src!r}")
+        r = self.scraper.get(src, timeout=self.timeout)
+        r.raise_for_status()
+        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        return RawParagraph(
+            text="",
+            image=Image(
+                content=r.content,
+                media_type=content_type,
+                src=f"{index}_{counter}",
+            ),
+        )
