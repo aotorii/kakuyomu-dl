@@ -1,10 +1,18 @@
 import logging
+from datetime import datetime
 
 from bs4 import Tag
 from scraper import PageSoup, Scraper, default_config
 
 from scrapers import BaseScraper, Episode, Image, RawParagraph, TocEntry
-from utils import EPOCH, load_cookies, parse_date, parse_series_id, parse_status
+from utils import (
+    EPOCH,
+    load_cookies,
+    parse_date,
+    parse_redirect,
+    parse_series_id,
+    parse_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +62,9 @@ class HamelnScraper(BaseScraper):
 
     def fetch_episode(self, entry: TocEntry) -> Episode:
         logger.info(f"Fetching episode {entry.index}: {entry.title}")
-        url = entry.url.rstrip("/1") if entry.meta.get("is_short", 0) else entry.url
+        url = (
+            entry.url.rstrip("/1.html") if entry.meta.get("is_short", 0) else entry.url
+        )
         soup = self._get_soup_cf(url)
 
         start_tag = soup.select_one("span#analytics_start").tag
@@ -136,23 +146,22 @@ class HamelnScraper(BaseScraper):
             novel="h.syosetu" if data.get("is_r18") else "syosetu", work_id=series_id
         )
         title = meta.get("タイトル", f"Work {series_id}")
-        published = meta.get("掲載開始", "")
+        published = meta.get("掲載開始", "").strip()
         published = published + ":00" if published else ""
-        last_published = meta.get("最新投稿", "")
+        last_published = meta.get("最新投稿", "").strip()
         last_published = last_published + ":00" if last_published else ""
         activity_name = meta.get("作者", "Unknown")
         introduction = meta.get("あらすじ", "")
         keyword_1 = meta.get("必須タグ", "").split()
         keyword_2 = meta.get("タグ", "").split()
         keyword = keyword_1 + [k for k in keyword_2 if k not in keyword_1]
-        status_info = meta.get("話数", "")
+        status_info = meta.get("話数", "").strip()
         status = 0 if "完結" in status_info or "短編" in status_info else 1
-        is_short = 1 if "短編" in status_info else 0
+        is_short = 1 if "短編 1話" in status_info else 0
         episode_count = int(status_info.rstrip("話").split()[-1]) if status_info else 0
         char_count = int(
-            meta.get("合計文字数", "").rstrip("文字").replace(",", "") or 0
+            meta.get("合計文字数", "").strip().rstrip("文字").replace(",", "") or 0
         )
-        edited = last_published
         if is_short:
             episodes = {
                 "Episode:1": {
@@ -174,10 +183,13 @@ class HamelnScraper(BaseScraper):
                 }
             }
             toc = [{"__ref": "TableOfContentsChapter:"}]
+            ep_edited = [published]
         else:
             eplist = data.get("eplist")
-            episodes, chapters, toc_ch, toc = self._parse_eplist(eplist)
-        props.update({"is_short": is_short, "is_r18": data.get("isr18", 0)})
+            episodes, chapters, toc_ch, toc, ep_edited = self._parse_eplist(eplist)
+        edited = [parse_date(time) or EPOCH for time in ep_edited]
+        edited = max(edited, key=lambda x: datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ"))
+        props.update({"is_short": is_short, "is_r18": data.get("is_r18", 0)})
         user_account.update({
             "__typename": "UserAccount",
             "id": f"{user_id}",
@@ -196,7 +208,7 @@ class HamelnScraper(BaseScraper):
             "serialStatus": parse_status(status).upper(),
             "publicEpisodeCount": episode_count,
             "totalCharacterCount": char_count,
-            "editedAt": parse_date(edited) or EPOCH,
+            "editedAt": edited,
             "tableOfContentsV2": toc,
             "url": url,
             "property": [{"__ref": prop} for prop in PROPERTY],
@@ -227,6 +239,9 @@ class HamelnScraper(BaseScraper):
                 if label.startswith("あらすじ"):
                     for br in tag.find_all("br"):
                         br.replace_with("\n")
+                    for a in tag.find_all("a"):
+                        link = a.get("href", "")
+                        a.replace_with(parse_redirect(link))
                     value = tag.get_text().strip()
                     meta[label] = value
                     continue
@@ -242,11 +257,11 @@ class HamelnScraper(BaseScraper):
                     meta[label] = value
         return meta
 
-    def _parse_eplist(self, eplist: Tag | None) -> tuple[dict, dict, dict, list]:
+    def _parse_eplist(self, eplist: Tag | None) -> tuple[dict, dict, dict, list, list]:
         episodes = {}
         chapters = {}
         toc_ch = {}
-        ch_index, ch_id, toc = 0, "", []
+        ch_index, ch_id, toc, edited_at = 0, "", [], []
         if not eplist:
             return episodes, chapters, toc_ch, toc
         toc_ch["TableOfContentsChapter:"] = {
@@ -266,6 +281,10 @@ class HamelnScraper(BaseScraper):
                     update.find(string=True, recursive=False) or "" if update else ""
                 )
                 published_at = published_at + ":00" if published_at else ""
+                edit = tag.select_one("nobr span")
+                text = edit.get("title", "").strip("改稿").strip() if edit else ""
+                if text:
+                    edited_at.append(text + ":00")
                 toc_ch[f"TableOfContentsChapter:{ch_id}"]["episodeUnions"].append({
                     "__ref": f"Episode:{ep_id}"
                 })
@@ -298,7 +317,7 @@ class HamelnScraper(BaseScraper):
         for key, entry in toc_ch.items():
             if entry.get("episodeUnions"):
                 toc.append({"__ref": key})
-        return episodes, chapters, toc_ch, toc
+        return episodes, chapters, toc_ch, toc, edited_at
 
     def _get_soup_cf(self, url: str) -> PageSoup:
         soup = self.scraper.get_soup(url, timeout=(self.timeout, 301))

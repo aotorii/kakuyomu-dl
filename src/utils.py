@@ -7,6 +7,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
 
 import emoji
 import inflect
@@ -96,6 +97,15 @@ def parse_date(date: str) -> str | None:
         except ValueError:
             continue
     raise ValueError(f"Unknown date format: {date}")
+
+
+def parse_redirect(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.query:
+        qs = parse_qs(parsed.query)
+        target = qs.get("url", [""])[0]
+        url = unquote(target)
+    return url
 
 
 def clean_title(title: str, clean: bool) -> str:
