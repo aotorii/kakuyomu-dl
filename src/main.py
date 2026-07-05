@@ -203,7 +203,9 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     if indices == []:
         print("Done. All xhtml files already exist.")
     else:
-        raw_episodes = scraper.fetch_episodes(entries, indices=indices)
+        raw_episodes = scraper.fetch_episodes(
+            entries, indices=indices, illus=config.illustration
+        )
         parsed = parser.parse_many(raw_episodes)
         paths = writer.write_many(parsed)
         skipped = to_fetch - len(indices or [])

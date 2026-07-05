@@ -223,7 +223,7 @@ def _feather_mask(size: tuple[int, int], opacity: int, feather: int) -> Image.Im
     return mask.filter(ImageFilter.GaussianBlur(feather / 2))
 
 
-def _place_key_visual(
+def _place_visual(
     img: Image.Image,
     key_visual: bytes,
     box: tuple[int, int, int, int],
@@ -304,7 +304,7 @@ def generate_cover(
     y += 24
 
     if key_visual:
-        _place_key_visual(
+        _place_visual(
             img,
             key_visual,
             box=(TEXT_X_START, y, TEXT_X_START + TEXT_WIDTH, H - BOTTOM_MARGIN),

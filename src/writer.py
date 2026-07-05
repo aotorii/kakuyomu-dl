@@ -35,6 +35,7 @@ TITLE_TEMPLATE = Template('<h1 id="toc-$index" class="chapter-title">$text</h1>'
 IMAGE_TEMPLATE = Template(
     '<p><img src="../image/$file_name" alt="挿絵" class="fit"/></p>'
 )
+LINK_TEMPLATE = Template('<p><a href="$url">$text</a></p>')
 BLANK_LINE = "<p><br/></p>"
 HORIZONTAL_LINE = '<hr class="horizontal-break" />'
 
@@ -89,7 +90,7 @@ class XhtmlWriter:
         for block in episode.blocks:
             if block.type == BlockType.PARAGRAPH:
                 lines.append(f"<p>{block.text.replace('&', '&amp;')}</p>")
-                # lines.append(P_TEMPLATE.substitute(text=_escape(block.text)))
+                # lines.append(P_TEMPLATE.substitute(text=escape(block.text)))
 
             elif block.type == BlockType.SCENE_BREAK:
                 if block.text:
@@ -110,6 +111,11 @@ class XhtmlWriter:
                 image = block.image
                 lines.append(IMAGE_TEMPLATE.substitute(file_name=f"{image.src}.jpg"))
                 self.painter(image)
+
+            elif block.type == BlockType.LINK:
+                text = block.text
+                src = block.image.src
+                lines.append(LINK_TEMPLATE.substitute(url=src, text=text))
 
         body_content = "\n".join(lines)
 

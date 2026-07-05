@@ -39,7 +39,7 @@ class NaroScraper(BaseScraper):
         self.session.cookies.set("over18", "yes", domain=".syosetu.com")
         self.session.headers.update({"User-Agent": user_agent})
 
-    def fetch_episode(self, entry: TocEntry) -> Episode:
+    def fetch_episode(self, entry: TocEntry, illus: bool = True) -> Episode:
         logger.info(f"Fetching episode {entry.index}: {entry.title}")
         url = entry.url.rstrip("/1") if entry.meta.get("is_short", 0) else entry.url
         soup = self._get_soup(url)
@@ -59,22 +59,30 @@ class NaroScraper(BaseScraper):
                     link_tag = p.select_one("a")
                     img_tag = p.select_one("a img")
                     if img_tag:
+                        counter += 1
                         src = link_tag.get("href", "")
                         match = MITE_RE.search(src)
                         if not match:
                             raise ValueError(f"Unknown image source: {src!r}")
                         uid, img_id = match.groups()
                         img_url = MITE_URL.format(uid=uid, img_id=img_id)
-                        content, content_type = self.fetch_image(img_url)
-                        counter += 1
+                        if illus:
+                            content, content_type = self.fetch_image(img_url)
+                            raw_paragraphs.append(
+                                RawParagraph(
+                                    text="",
+                                    image=WorkImage(
+                                        content=content,
+                                        media_type=content_type,
+                                        src=f"{entry.index}_{counter}",
+                                    ),
+                                )
+                            )
+                            continue
                         raw_paragraphs.append(
                             RawParagraph(
-                                text="",
-                                image=WorkImage(
-                                    content=content,
-                                    media_type=content_type,
-                                    src=f"{entry.index}_{counter}",
-                                ),
+                                text=f"【挿絵{entry.index}-{counter}】",
+                                image=WorkImage(src=f"{img_url}"),
                             )
                         )
                         continue

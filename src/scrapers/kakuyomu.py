@@ -33,7 +33,7 @@ class KakuyomuScraper(BaseScraper):
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
 
-    def fetch_episode(self, entry: TocEntry) -> Episode:
+    def fetch_episode(self, entry: TocEntry, illus: bool = True) -> Episode:
         logger.info(f"Fetching episode {entry.index}: {entry.title}")
         soup = self._get_soup(entry.url)
 

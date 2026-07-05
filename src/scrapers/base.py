@@ -26,9 +26,9 @@ class TocEntry:
 
 @dataclass
 class WorkImage:
-    content: bytes
-    media_type: str
     src: str
+    content: bytes | None = None
+    media_type: str | None = None
 
 
 @dataclass
@@ -68,7 +68,7 @@ class BaseScraper(ABC):
     EP_URL: str
 
     @abstractmethod
-    def fetch_episode(self, entry: TocEntry): ...
+    def fetch_episode(self, entry: TocEntry, illus: bool = True): ...
 
     @abstractmethod
     def fetch_image(self, url: str): ...
@@ -117,6 +117,7 @@ class BaseScraper(ABC):
         self,
         entries: list[TocEntry],
         indices: Optional[list[int]] = None,
+        illus: bool = True,
     ) -> list[Episode]:
         targets = (
             [e for e in entries if e.index in indices]
@@ -131,7 +132,7 @@ class BaseScraper(ABC):
         for i, entry in enumerate(fetch):
             if i > 0:
                 time.sleep(self.delay)
-            episodes.append(self.fetch_episode(entry))
+            episodes.append(self.fetch_episode(entry, illus))
         return episodes
 
     def parse_work_meta(self, apollo: dict, series_id: str) -> WorkMeta:

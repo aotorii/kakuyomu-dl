@@ -9,6 +9,7 @@ from utils import SCENE_BREAK_RE
 class BlockType(Enum):
     PARAGRAPH = auto()
     IMAGE = auto()
+    LINK = auto()
     SCENE_BREAK = auto()
     THEMATIC_BREAK = auto()
 
@@ -68,6 +69,8 @@ class EpisodeParser:
 
     def _classify(self, raw: RawParagraph) -> Block | None:
         if raw.image:
+            if raw.text:
+                return Block(type=BlockType.LINK, text=raw.text, image=raw.image)
             return Block(type=BlockType.IMAGE, image=raw.image)
 
         if raw.is_blank:
