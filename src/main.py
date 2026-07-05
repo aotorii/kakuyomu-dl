@@ -10,7 +10,14 @@ import cache
 from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
-from scrapers import BaseScraper, HamelnScraper, KakuyomuScraper, NaroScraper, TocEntry
+from scrapers import (
+    BaseScraper,
+    HamelnScraper,
+    KakuyomuScraper,
+    NaroScraper,
+    TocEntry,
+    WorkImage,
+)
 from utils import (
     better_view,
     display_title,
@@ -142,6 +149,11 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     print("Fetching work metadata and table of contents…")
     meta, entries, apollo = scraper.fetch_meta_and_toc(series_id)
     print_meta(meta)
+
+    if meta.key_visual:
+        content, content_type = scraper.get_image(meta.key_visual)
+        visual = WorkImage(content=content, media_type=content_type, src="visual")
+        writer.painter(visual)
 
     old_apollo = cache.load(series_id)
     if old_apollo:

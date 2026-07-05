@@ -55,6 +55,7 @@ class WorkMeta:
     published: str
     last_episode: str
     last_edited: str
+    key_visual: str | None = None
 
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:

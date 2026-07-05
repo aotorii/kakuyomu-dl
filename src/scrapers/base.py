@@ -25,6 +25,13 @@ class TocEntry:
 
 
 @dataclass
+class WorkImage:
+    content: bytes
+    media_type: str
+    src: str
+
+
+@dataclass
 class WorkMeta:
     series_id: str
     title: str
@@ -37,19 +44,13 @@ class WorkMeta:
     published: str
     last_episode: str
     last_edited: str
-
-
-@dataclass
-class Image:
-    content: bytes
-    media_type: str
-    src: str
+    key_visual: str | None = None
 
 
 @dataclass
 class RawParagraph:
     text: str
-    image: Image | None = None
+    image: WorkImage | None = None
     is_blank: bool = False
     is_hr: bool = False
 
@@ -150,9 +151,7 @@ class BaseScraper(ABC):
         published = work_node.get("publishedAt", "")
         last_episode = work_node.get("lastEpisodePublishedAt", "")
         last_edited = work_node.get("editedAt", "")
-
-        if not title:
-            logger.warning("Work title not found in __NEXT_DATA__")
+        key_visual = work_node.get("adminSquareImageUrl", None)
 
         return WorkMeta(
             series_id=series_id,
@@ -166,6 +165,7 @@ class BaseScraper(ABC):
             published=published,
             last_episode=last_episode,
             last_edited=last_edited,
+            key_visual=key_visual,
         )
 
     def parse_toc(self, apollo: dict, series_id: str) -> list[TocEntry]:
@@ -228,6 +228,12 @@ class BaseScraper(ABC):
                 )
                 index += 1
         return entries
+
+    def get_image(self, url: str) -> tuple[bytes, str]:
+        r = self.session.get(url, timeout=self.timeout)
+        r.raise_for_status()
+        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        return r.content, content_type
 
     def _get_soup(self, url: str) -> BeautifulSoup:
         response = self.session.get(url, timeout=self.timeout)

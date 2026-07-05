@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from scrapers import Episode, Image, RawParagraph
+from scrapers import Episode, RawParagraph, WorkImage
 from utils import SCENE_BREAK_RE
 
 
@@ -17,7 +17,7 @@ class BlockType(Enum):
 class Block:
     type: BlockType
     text: str = ""
-    image: Image | None = None
+    image: WorkImage | None = None
 
 
 @dataclass

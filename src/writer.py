@@ -3,7 +3,7 @@ from pathlib import Path
 from string import Template
 
 from parser import BlockType, ParsedEpisode
-from scrapers import Image
+from scrapers import WorkImage
 from utils import OUT_DIR, escape
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ class XhtmlWriter:
             elif block.type == BlockType.IMAGE:
                 image = block.image
                 lines.append(IMAGE_TEMPLATE.substitute(file_name=f"{image.src}.jpg"))
-                self._painter(image)
+                self.painter(image)
 
         body_content = "\n".join(lines)
 
@@ -118,7 +118,7 @@ class XhtmlWriter:
             body_content=body_content,
         )
 
-    def _painter(self, image: Image) -> None:
+    def painter(self, image: WorkImage) -> None:
         ext = {
             "image/jpeg": "jpg",
             "image/png": "png",

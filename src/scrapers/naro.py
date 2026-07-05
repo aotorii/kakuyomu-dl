@@ -4,7 +4,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup, Tag
 
-from scrapers import BaseScraper, Episode, Image, RawParagraph, TocEntry
+from scrapers import BaseScraper, Episode, RawParagraph, TocEntry, WorkImage
 from utils import EPOCH, MITE_RE, parse_date, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ class NaroScraper(BaseScraper):
                         raw_paragraphs.append(
                             RawParagraph(
                                 text="",
-                                image=Image(
+                                image=WorkImage(
                                     content=content,
                                     media_type=content_type,
                                     src=f"{entry.index}_{counter}",
@@ -189,6 +189,7 @@ class NaroScraper(BaseScraper):
             "__typename": "Work",
             "id": ncode,
             "title": title.strip(),
+            "adminSquareImageUrl": None,
             "author": {"__ref": f"UserAccount:{user_id}"},
             "publishedAt": parse_date(published) or EPOCH,
             "lastEpisodePublishedAt": parse_date(last_published) or EPOCH,

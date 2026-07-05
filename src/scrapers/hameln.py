@@ -4,7 +4,7 @@ from datetime import datetime
 from bs4 import Tag
 from scraper import PageSoup, Scraper, default_config
 
-from scrapers import BaseScraper, Episode, Image, RawParagraph, TocEntry
+from scrapers import BaseScraper, Episode, RawParagraph, TocEntry, WorkImage
 from utils import (
     EPOCH,
     load_cookies,
@@ -200,6 +200,7 @@ class HamelnScraper(BaseScraper):
             "__typename": "Work",
             "id": series_id,
             "title": title.strip(),
+            "adminSquareImageUrl": None,
             "author": {"__ref": f"UserAccount:{user_id}"},
             "publishedAt": parse_date(published) or EPOCH,
             "lastEpisodePublishedAt": parse_date(last_published) or EPOCH,
@@ -371,7 +372,7 @@ class HamelnScraper(BaseScraper):
         content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
         return RawParagraph(
             text="",
-            image=Image(
+            image=WorkImage(
                 content=r.content,
                 media_type=content_type,
                 src=f"{index}_{counter}",
