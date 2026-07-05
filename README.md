@@ -32,6 +32,70 @@ pip install -r requirements.txt
 python src/main.py -h
 ```
 
+```
+usage: kakuyomu-dl [-h] [--delay SECONDS] {toc,fetch,epub,check,bookmark} ...
+
+A downloader to download chapters from web novels and write into epub files.
+
+positional arguments:
+  {toc,fetch,epub,check,bookmark}
+    toc                 list all episodes for a novel
+    fetch               fetch episode content
+    epub                build an epub from already fetched episodes
+    check               check for new episodes
+    bookmark            list your bookmarks
+
+options:
+  -h, --help            show this help message and exit
+  --delay SECONDS       delay between http requests
+```
+
+```
+usage: kakuyomu-dl fetch [-h] [--episodes SPEC] [--out-dir DIR] [--no-overwrite] [--epub] [--epub-out-dir DIR]
+                         [--epub-clean] [--no-illus]
+                         series
+
+positional arguments:
+  series              series ID or full web url
+
+options:
+  -h, --help          show this help message and exit
+  --episodes SPEC     select the episodes you want to fetch, examples: '1-7' or '1,3-5,7'
+  --out-dir DIR       directory to write files into
+  --no-overwrite      skip episodes whose xhtml file already exists
+  --epub              build an epub immediately after fetching episodes
+  --epub-out-dir DIR  where to write the epub file when using --epub
+  --epub-clean        remove possible sale promotion in the novel title when using --epub
+  --no-illus          skip fetching illustrations from episode pages
+```
+
+```
+usage: kakuyomu-dl epub [-h] [--xhtml-dir DIR] [--out-dir DIR] [--filename NAME] [--clean] series
+
+positional arguments:
+  series           series ID or full web url
+
+options:
+  -h, --help       show this help message and exit
+  --xhtml-dir DIR  directory containing the episode files
+  --out-dir DIR    where to write the epub file
+  --filename NAME  override the output filename
+  --clean          remove possible sale promotion in the novel title
+```
+
+```
+usage: kakuyomu-dl bookmark [-h] [--check | --update | --delete SERIES [SERIES ...] | --add SERIES [SERIES ...]]
+
+options:
+  -h, --help            show this help message and exit
+  --check               check update for all the series on the bookmark list
+  --update              update all the series on the bookmark list
+  --delete SERIES [SERIES ...]
+                        delete series from your bookmark list
+  --add SERIES [SERIES ...]
+                        add series to your bookmark list
+```
+
 ## Examples
  - Fetch all episodes and build the epub with one line
 ```bash

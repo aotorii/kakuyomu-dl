@@ -390,7 +390,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kakuyomu-dl",
-        description="A downloader to download chapters from web novels and write into epub files. (Available sites: kakuyomu, naro)",
+        description="A downloader to download chapters from web novels and write into epub files.",
     )
     parser.add_argument(
         "--delay",
