@@ -101,6 +101,7 @@ def fetch_config_init(config: FetchConfig, args: argparse.Namespace) -> FetchCon
     config.clean_title = args.epub_clean or config.clean_title
     config.out_dir = Path(args.out_dir or config.out_dir)
     config.epub_out_dir = Path(args.epub_out_dir or config.epub_out_dir)
+    config.illustration = not args.no_illus and config.illustration
     return config
 
 
@@ -349,6 +350,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
                 epub=True,
                 epub_out_dir=config.epub_dir,
                 epub_clean=config.clean_title,
+                no_illus=not config.illustration,
             )
             cmd_fetch(fetch_args)
         return
@@ -428,6 +430,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="remove possible sale promotion in the novel title when using --epub",
     )
+    fetch_p.add_argument(
+        "--no-illus",
+        action="store_true",
+        help="skip fetching illustrations from episode pages",
+    )
     fetch_p.set_defaults(func=cmd_fetch)
 
     epub_p = subparsers.add_parser(
@@ -496,22 +503,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     bookmark_p.set_defaults(func=cmd_bookmark)
 
-    debug_p = subparsers.add_parser("debug", help="vanilla")
-    debug_p.add_argument(
-        "series",
-        help="no help",
-    )
-    debug_p.set_defaults(func=cmd_debug)
+    # debug_p = subparsers.add_parser("debug", help="vanilla")
+    # debug_p.add_argument(
+    #     "series",
+    #     help="no help",
+    # )
+    # debug_p.set_defaults(func=cmd_debug)
 
     return parser
 
 
-def cmd_debug(args: argparse.Namespace) -> None:
-    series_id = parse_series_id(args.series)
-    scraper = get_scraper(series_id, args.delay)
-    data = scraper._get_image(series_id)
-    # data = scraper._fetch_next_data(args.series)
-    print(data)
+# def cmd_debug(args: argparse.Namespace) -> None:
 
 
 def main() -> None:

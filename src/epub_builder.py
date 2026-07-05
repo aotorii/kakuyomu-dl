@@ -172,6 +172,7 @@ class EpubBuilder:
         self.out_dir.mkdir(parents=True, exist_ok=True)
         xhtml_dir = self.xhtml_dir / "xhtml"
         image_dir = self.xhtml_dir / "image"
+        visual_path = next(image_dir.glob("visual.*"), None)
 
         book = epub.EpubBook()
         title = clean_title(meta.title, self.clean)
@@ -182,7 +183,10 @@ class EpubBuilder:
         book.set_language(self.language)
         book.add_author(meta.author)
 
-        cover = generate_cover(strip_emoji(title), strip_emoji(meta.author), site)
+        key_visual_bytes = visual_path.read_bytes() if visual_path else None
+        cover = generate_cover(
+            strip_emoji(title), strip_emoji(meta.author), site, key_visual_bytes
+        )
         book.set_cover("image/cover.jpg", cover)
 
         if meta.description:
@@ -283,17 +287,17 @@ class EpubBuilder:
 
         if image_dir.exists():
             for img_path in sorted(image_dir.glob("*")):
-                ext = img_path.suffix.lstrip(".")
-                media_type = {
-                    "jpg": "image/jpeg",
-                    "png": "image/png",
-                    "webp": "image/webp",
-                }.get(ext, "image/jpeg")
+                # ext = img_path.suffix.lstrip(".")
+                # media_type = {
+                #     "jpg": "image/jpeg",
+                #     "png": "image/png",
+                #     "webp": "image/webp",
+                # }.get(ext, "image/jpeg")
                 content = process_image(img_path.read_bytes())
                 epub_img = epub.EpubImage(
                     uid=f"img_{img_path.stem}",
-                    file_name=f"image/{img_path.name}",
-                    media_type=media_type,
+                    file_name=f"image/{img_path.stem}.jpg",
+                    media_type="image/jpeg",
                     content=content,
                 )
                 book.add_item(epub_img)

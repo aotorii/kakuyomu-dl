@@ -119,6 +119,11 @@ class XhtmlWriter:
         )
 
     def _painter(self, image: Image) -> None:
-        path = self.out_dir / f"image/{image.src}.jpg"
+        ext = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+        }.get(image.media_type, "jpg")
+        path = self.out_dir / f"image/{image.src}.{ext}"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(image.content)

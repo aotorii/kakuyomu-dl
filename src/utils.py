@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import emoji
 import inflect
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 PROMO_RE = re.compile(
     r"【[^】]*(発売|書籍化|アニメ|連載|コミカライズ|コミック|続刊|完結|受賞|大賞|金賞|重版|更新|追加|シリーズ化|PV|達成|開始)[^】]*】",
@@ -28,6 +28,7 @@ SITE = {
     r"kakuyomu": {"site": "kakuyomu", "color": "#0099cc"},
     r"syosetu\.org": {"site": "hameln", "color": "#000000"},
 }
+
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -199,17 +200,57 @@ def escape(text: str) -> str:
     return text
 
 
-def process_image(content: bytes, max_width: int = 1200) -> bytes:
+def process_image(
+    content: bytes, max_width: int = 1200, max_height: int = 1800
+) -> bytes:
     img = Image.open(io.BytesIO(content)).convert("RGB")
-    if img.width > max_width:
-        ratio = max_width / img.width
-        img = img.resize((max_width, int(img.height * ratio)), Image.LANCZOS)
+    scale = min(max_width / img.width, max_height / img.height)
+    if scale < 1:
+        img = img.resize(
+            (round(img.width * scale), round(img.height * scale)), Image.LANCZOS
+        )
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85, optimize=True)
     return buf.getvalue()
 
 
-def generate_cover(title: str, author: str, site: dict) -> bytes:
+def _feather_mask(size: tuple[int, int], opacity: int, feather: int) -> Image.Image:
+    w, h = size
+    mask = Image.new("L", (w, h), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.rectangle([feather, feather, w - feather, h - feather], fill=opacity)
+    return mask.filter(ImageFilter.GaussianBlur(feather / 2))
+
+
+def _place_key_visual(
+    img: Image.Image,
+    key_visual: bytes,
+    box: tuple[int, int, int, int],
+    opacity: float = 0.5,
+    feather: int = 36,
+) -> None:
+    x0, y0, x1, y1 = (round(v) for v in box)
+    box_w, box_h = x1 - x0, y1 - y0
+    if box_w <= 0 or box_h <= 0:
+        return
+
+    visual = Image.open(io.BytesIO(key_visual)).convert("RGB")
+    vw, vh = visual.size
+    scale = min(box_w / vw, box_h / vh)
+    new_w, new_h = max(1, round(vw * scale)), max(1, round(vh * scale))
+    if scale < 1 or scale > 1:
+        visual = visual.resize((new_w, new_h), Image.LANCZOS)
+
+    mask = _feather_mask((new_w, new_h), opacity=round(255 * opacity), feather=feather)
+
+    paste_x = x0 + (box_w - new_w) // 2
+    paste_y = y0
+    img.paste(visual, (paste_x, paste_y), mask)
+
+
+def generate_cover(
+    title: str, author: str, site: dict, key_visual: bytes | None = None
+) -> bytes:
     identifier = site.get("site")
     color = site.get("color")
     bg_path = ASSETS_DIR / "covers" / f"cover_{identifier}.png"
@@ -238,6 +279,7 @@ def generate_cover(title: str, author: str, site: dict) -> bytes:
     TEXT_PAD = 40
     TEXT_X = STRIP_W + TEXT_PAD
     TEXT_W = W - TEXT_X - TEXT_PAD
+    BOTTOM_MARGIN = 100
 
     avg_char_w = draw.textbbox((0, 0), "あ", font=font_title)[2]
     chars_per_line = max(1, int(TEXT_W / avg_char_w))
@@ -259,6 +301,13 @@ def generate_cover(title: str, author: str, site: dict) -> bytes:
     y += 20
     draw.rectangle([TEXT_X_START, y, TEXT_X_START + TEXT_WIDTH, y + 4], fill=color)
     y += 24
+
+    if key_visual:
+        _place_key_visual(
+            img,
+            key_visual,
+            box=(TEXT_X_START, y, TEXT_X_START + TEXT_WIDTH, H - BOTTOM_MARGIN),
+        )
 
     bbox = draw.textbbox((0, 0), author, font=font_author)
     aw = bbox[2] - bbox[0]

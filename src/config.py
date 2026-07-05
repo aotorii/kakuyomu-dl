@@ -13,6 +13,7 @@ class FetchConfig:
     epub_out_dir: str | Path = EPUB_DIR
     # e.g. epub_out_dir: str | Path = r"c:\Users\<username>\Downloads"
     clean_title: bool = False
+    illustration: bool = True
 
 
 @dataclass
@@ -26,6 +27,7 @@ class EpubConfig:
 class BookmarkUpdateConfig:
     xhtml_dir: str | Path = OUT_DIR
     epub_dir: str | Path = EPUB_DIR
-    overwrite = False
-    clean_title = True
-    skip_completed = True
+    overwrite: bool = False
+    clean_title: bool = True
+    skip_completed: bool = True
+    illustration: bool = True
