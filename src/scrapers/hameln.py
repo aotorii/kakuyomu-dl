@@ -88,7 +88,7 @@ class HamelnScraper(BaseScraper):
                 if img_tag:
                     counter += 1
                     raw_paragraphs.append(
-                        self._get_image(img_tag, entry.index, counter)
+                        self._insert_image(img_tag, entry.index, counter)
                     )
                     continue
                 is_blank = not p.get_text(strip=True)
@@ -111,6 +111,12 @@ class HamelnScraper(BaseScraper):
             episode_id=entry.episode_id,
             raw_paragraphs=raw_paragraphs,
         )
+
+    def fetch_image(self, url: str) -> tuple[bytes, str]:
+        r = self.scraper.get(url, timeout=self.timeout)
+        r.raise_for_status()
+        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        return r.content, content_type
 
     def _fetch_next_data(self, url: str) -> dict:
         series_id = parse_series_id(url)
@@ -346,7 +352,7 @@ class HamelnScraper(BaseScraper):
             elif child.name == "a":
                 if child.get("alt") == "挿絵":
                     counter += 1
-                    paragraphs.append(self._get_image(child, index, counter))
+                    paragraphs.append(self._insert_image(child, index, counter))
                 else:
                     outer = str(child)
                     if paragraphs and last_child not in ["br", "hr"]:
@@ -363,17 +369,15 @@ class HamelnScraper(BaseScraper):
             last_child = child.name
         return paragraphs, counter
 
-    def _get_image(self, tag: Tag, index: int, counter: int) -> RawParagraph:
+    def _insert_image(self, tag: Tag, index: int, counter: int) -> RawParagraph:
         src = tag.get("href", "")
         if not src:
             raise ValueError(f"Invalid image tag: {str(tag)!r}")
-        r = self.scraper.get(src, timeout=self.timeout)
-        r.raise_for_status()
-        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        content, content_type = self.fetch_image(src)
         return RawParagraph(
             text="",
             image=WorkImage(
-                content=r.content,
+                content=content,
                 media_type=content_type,
                 src=f"{index}_{counter}",
             ),

@@ -64,6 +64,12 @@ class KakuyomuScraper(BaseScraper):
             raw_paragraphs=raw_paragraphs,
         )
 
+    def fetch_image(self, url: str) -> tuple[bytes, str]:
+        r = self.session.get(url, timeout=self.timeout)
+        r.raise_for_status()
+        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        return r.content, content_type
+
     # Extract the __NEXT_DATA__ JSON blob
     def _fetch_next_data(self, url: str) -> dict:
         response = self.session.get(url, timeout=self.timeout)

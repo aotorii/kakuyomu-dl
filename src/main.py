@@ -151,7 +151,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     print_meta(meta)
 
     if meta.key_visual:
-        content, content_type = scraper.get_image(meta.key_visual)
+        content, content_type = scraper.fetch_image(meta.key_visual)
         visual = WorkImage(content=content, media_type=content_type, src="visual")
         writer.painter(visual)
 

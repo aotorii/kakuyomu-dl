@@ -261,7 +261,7 @@ class EpubBuilder:
             current_links: list[epub.Link] = []
 
             def flush_section():
-                if current_section is not None and current_links:
+                if current_section and current_links:
                     toc_nested.append((
                         epub.Section(current_section),
                         tuple(current_links),
@@ -275,6 +275,12 @@ class EpubBuilder:
                     ch.file_name + f"#toc-{entry.index:03d}", entry.title, ch.id
                 )
 
+                if not entry.category:
+                    flush_section()
+                    current_section = None
+                    current_links = []
+                    toc_nested.append(link)
+                    continue
                 if entry.category != current_section:
                     flush_section()
                     current_section = entry.category

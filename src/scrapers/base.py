@@ -71,6 +71,9 @@ class BaseScraper(ABC):
     def fetch_episode(self, entry: TocEntry): ...
 
     @abstractmethod
+    def fetch_image(self, url: str): ...
+
+    @abstractmethod
     def _fetch_next_data(self, url: str): ...
 
     @abstractmethod
@@ -228,12 +231,6 @@ class BaseScraper(ABC):
                 )
                 index += 1
         return entries
-
-    def get_image(self, url: str) -> tuple[bytes, str]:
-        r = self.session.get(url, timeout=self.timeout)
-        r.raise_for_status()
-        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
-        return r.content, content_type
 
     def _get_soup(self, url: str) -> BeautifulSoup:
         response = self.session.get(url, timeout=self.timeout)

@@ -60,7 +60,12 @@ class NaroScraper(BaseScraper):
                     img_tag = p.select_one("a img")
                     if img_tag:
                         src = link_tag.get("href", "")
-                        content, content_type = self._mite_chan(src)
+                        match = MITE_RE.search(src)
+                        if not match:
+                            raise ValueError(f"Unknown image source: {src!r}")
+                        uid, img_id = match.groups()
+                        img_url = MITE_URL.format(uid=uid, img_id=img_id)
+                        content, content_type = self.fetch_image(img_url)
                         counter += 1
                         raw_paragraphs.append(
                             RawParagraph(
@@ -88,6 +93,12 @@ class NaroScraper(BaseScraper):
             episode_id=entry.episode_id,
             raw_paragraphs=raw_paragraphs,
         )
+
+    def fetch_image(self, url: str) -> tuple[bytes, str]:
+        r = self.session.get(url, timeout=self.timeout)
+        r.raise_for_status()
+        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        return r.content, content_type
 
     def _fetch_next_data(self, url: str) -> dict:
         series_id = parse_series_id(url)
@@ -274,14 +285,3 @@ class NaroScraper(BaseScraper):
             if entry.get("episodeUnions"):
                 toc.append({"__ref": key})
         return episodes, chapters, toc_ch, toc
-
-    def _mite_chan(self, src: str) -> tuple[bytes, str]:
-        match = MITE_RE.search(src)
-        if not match:
-            raise ValueError(f"Unknown image source: {src!r}")
-        uid, img_id = match.groups()
-        img_url = MITE_URL.format(uid=uid, img_id=img_id)
-        r = self.session.get(img_url, timeout=self.timeout)
-        r.raise_for_status()
-        content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
-        return r.content, content_type
