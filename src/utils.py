@@ -70,7 +70,8 @@ def parse_status(status: int) -> str:
 def parse_series_id(value: str) -> str:
     value = value.strip().rstrip("/")
     match = re.search(
-        r"(?:kakuyomu\.jp/works|syosetu\.com|syosetu\.org/novel)/([\da-z]+)", value
+        r"(?:kakuyomu\.jp/works/|syosetu\.com/|syosetu\.org/novel/|akatsuki-novels\.com/stories/index/novel_id~)([\da-z]+)",
+        value,
     )
     if match:
         return match.group(1)

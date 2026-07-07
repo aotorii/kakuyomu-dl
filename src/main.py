@@ -530,6 +530,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def cmd_debug(args: argparse.Namespace) -> None:
     scraper = AkatsukiScraper(delay=args.delay)
+    scraper._fetch_next_data(args.series)
 
 
 def main() -> None:
