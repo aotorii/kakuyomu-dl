@@ -557,23 +557,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     bookmark_p.set_defaults(func=cmd_bookmark)
 
-    debug_p = subparsers.add_parser("debug", help="vanilla")
-    debug_p.add_argument(
-        "series",
-        help="no help",
-    )
-    debug_p.set_defaults(func=cmd_debug)
+    # debug_p = subparsers.add_parser("debug", help="vanilla")
+    # debug_p.add_argument(
+    #     "series",
+    #     help="no help",
+    # )
+    # debug_p.set_defaults(func=cmd_debug)
 
     return parser
 
 
-def cmd_debug(args: argparse.Namespace) -> None:
-    scraper = AkatsukiScraper(delay=args.delay)
-    # data = scraper._fetch_next_data(args.series)
-    series_id, _ = parse_series_id(args.series)
-    entries = scraper.fetch_toc(series_id)
-    # _, _, _, toc = scraper._parse_eplist(data)
-    print_toc(entries)
+# def cmd_debug(args: argparse.Namespace) -> None:
+# return
 
 
 def main() -> None:

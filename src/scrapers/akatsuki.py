@@ -225,7 +225,7 @@ class AkatsukiScraper(BaseScraper):
                     ep_title = ep_tag.get_text(strip=True)
                     href = ep_tag.get("href", "")
                     match = re.search(r"/(\d+)/", href)
-                    ep_id = int(match.group(1)) if match else ""
+                    ep_id = match.group(1) if match else ""
                     update = ep_tag.parent.next_sibling
                     published_at = update.get_text(strip=True) or "" if update else ""
                     published_at = published_at + " 00秒" if published_at else ""

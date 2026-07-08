@@ -8,6 +8,7 @@ Available sites so far:
     - [naro](https://syosetu.com)
     - [midnight](https://mid.syosetu.com), [nocturne](https://noc.syosetu.com), [moonlight](https://mnlt.syosetu.com)
  - [hameln](https://syosetu.org)
+ - [akatsuki](https://www.akatsuki-novels.com)
 
 ## Environment
 ```
