@@ -22,6 +22,8 @@ BASE_URL = "https://{novel}.org/"
 WORK_URL = BASE_URL + "novel/{work_id}"
 META_URL = BASE_URL + "?mode=ss_detail&nid={work_id}"
 
+EP_URL = "{work_url}" + "/{episode_id}.html"
+
 MAEGAKI_SELECTOR = "div#maegaki"
 HONBUN_SELECTOR = "div#honbun"
 ATOGAKI_SELECTOR = "div#atogaki"
@@ -42,8 +44,6 @@ PROPERTY = ["is_short", "is_r18"]
 
 
 class HamelnScraper(BaseScraper):
-    EP_URL = "{work_url}" + "/{episode_id}.html"
-
     def __init__(self, delay: float = 1.0, timeout: int = 15):
         self.delay = delay
         self.timeout = timeout
@@ -141,6 +141,9 @@ class HamelnScraper(BaseScraper):
         if "h.syosetu" in response.url:
             url = WORK_URL.format(novel="h.syosetu", work_id=series_id)
         return url
+
+    def _get_ep_url(self, work_url: str, episode_id: str) -> str:
+        return EP_URL.format(work_url=work_url, episode_id=episode_id)
 
     def _apolloize(self, data: dict, series_id: str):
         apollo = {}
@@ -272,7 +275,7 @@ class HamelnScraper(BaseScraper):
         toc_ch = {}
         ch_index, ch_id, toc, edited_at = 0, "", [], []
         if not eplist:
-            return episodes, chapters, toc_ch, toc
+            return episodes, chapters, toc_ch, toc, edited_at
         toc_ch["TableOfContentsChapter:"] = {
             "__typename": "TableOfContentsChapter",
             "id": "",

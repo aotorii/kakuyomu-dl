@@ -84,7 +84,12 @@ def parse_series_id(value: str) -> str:
 def parse_date(date: str) -> str | None:
     date = re.sub(r"\(.+?\)", "", date).strip()
     JST = timezone(timedelta(hours=9))
-    FORMAT = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%SZ", "%Y年%m月%d日 %H:%M:%S"]
+    FORMAT = [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y年%m月%d日 %H:%M:%S",
+        "%Y年 %m月 %d日 %H時 %M分 %S秒",
+    ]
     if not date:
         return None
     for fmt in FORMAT:

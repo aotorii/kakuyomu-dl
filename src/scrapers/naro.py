@@ -14,6 +14,8 @@ WORK_URL = BASE_URL + "{work_id}"
 META_URL = "https://api.syosetu.com/{api}/api/?ncode={work_id}&out=json"
 MITE_URL = "https://{uid}.mitemin.net/userpageimage/viewimage/icode/{img_id}"
 
+EP_URL = "{work_url}" + "/{episode_id}"
+
 CHAPTER_TITLE_SELECTOR = "div.c-announce span:not([class])"
 EPISODE_TITLE_SELECTOR = "h1.p-novel__title"
 EPISODE_BODY_SELECTOR = "div.js-novel-text"
@@ -22,8 +24,6 @@ PROPERTY = ["is_short", "is_r18"]
 
 
 class NaroScraper(BaseScraper):
-    EP_URL = "{work_url}" + "/{episode_id}"
-
     def __init__(
         self,
         delay: float = 1.0,
@@ -151,6 +151,9 @@ class NaroScraper(BaseScraper):
         if "novel18" in response.url:
             url = WORK_URL.format(novel="novel18", work_id=series_id)
         return url
+
+    def _get_ep_url(self, work_url: str, episode_id: str) -> str:
+        return EP_URL.format(work_url=work_url, episode_id=episode_id)
 
     def _apolloize(self, data: dict, series_id: str) -> dict:
         apollo = {}

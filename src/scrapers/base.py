@@ -65,8 +65,6 @@ class Episode:
 
 
 class BaseScraper(ABC):
-    EP_URL: str
-
     @abstractmethod
     def fetch_episode(self, entry: TocEntry, illus: bool = True): ...
 
@@ -78,6 +76,9 @@ class BaseScraper(ABC):
 
     @abstractmethod
     def _get_url(self, series_id: str): ...
+
+    @abstractmethod
+    def _get_ep_url(self, work_url: str, episode_id: str): ...
 
     @abstractmethod
     def _apolloize(self, data: dict, series_id: str): ...
@@ -220,9 +221,7 @@ class BaseScraper(ABC):
                     TocEntry(
                         index=index,
                         title=title,
-                        url=self.EP_URL.format(
-                            work_url=work_url, episode_id=episode_id
-                        ),
+                        url=self._get_ep_url(work_url=work_url, episode_id=episode_id),
                         episode_id=episode_id,
                         category=category,
                         published_on=published_on,

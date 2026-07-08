@@ -11,14 +11,14 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://kakuyomu.jp/works/"
 WORK_URL = BASE_URL + "{work_id}"
 
+EP_URL = "{work_url}" + "/episodes/{episode_id}"
+
 CHAPTER_TITLE_SELECTOR = "p.chapterTitle"
 EPISODE_TITLE_SELECTOR = "p.widget-episodeTitle"
 EPISODE_BODY_SELECTOR = "div.widget-episodeBody"
 
 
 class KakuyomuScraper(BaseScraper):
-    EP_URL = "{work_url}" + "/episodes/{episode_id}"
-
     def __init__(
         self,
         delay: float = 1.0,
@@ -85,6 +85,9 @@ class KakuyomuScraper(BaseScraper):
 
     def _get_url(self, series_id: str) -> str:
         return WORK_URL.format(work_id=series_id)
+
+    def _get_ep_url(self, work_url: str, episode_id: str) -> str:
+        return EP_URL.format(work_url=work_url, episode_id=episode_id)
 
     def _apolloize(self, data: dict, series_id: str) -> dict:
         apollo = data.get("props", {}).get("pageProps", {}).get("__APOLLO_STATE__", {})
