@@ -121,7 +121,7 @@ class HamelnScraper(BaseScraper):
         return r.content, content_type
 
     def _fetch_next_data(self, url: str) -> dict:
-        series_id = parse_series_id(url)
+        series_id, _ = parse_series_id(url)
         meta_url, is_r18 = META_URL.format(novel="syosetu", work_id=series_id), 0
         if "h.syosetu" in url:
             meta_url, is_r18 = META_URL.format(novel="h.syosetu", work_id=series_id), 1

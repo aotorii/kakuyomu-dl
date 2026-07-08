@@ -67,16 +67,16 @@ def parse_status(status: int) -> str:
     return "Running" if status else "Completed"
 
 
-def parse_series_id(value: str) -> str:
+def parse_series_id(value: str) -> tuple[str, str | None]:
     value = value.strip().rstrip("/")
     match = re.search(
-        r"(?:kakuyomu\.jp/works/|syosetu\.com/|syosetu\.org/novel/|akatsuki-novels\.com/stories/index/novel_id~)([\da-z]+)",
+        r"(kakuyomu\.jp/works/|syosetu\.com/|syosetu\.org/novel/|akatsuki-novels\.com/stories/index/novel_id~)([\da-z]+)",
         value,
     )
     if match:
-        return match.group(1)
+        return match.group(2), match.group(1)
     if re.fullmatch(r"[\da-z]+", value, re.IGNORECASE):
-        return value.lower()
+        return value.lower(), None
     print(f"[error] Could not parse a series ID from: {value!r}.", file=sys.stderr)
     sys.exit(1)
 

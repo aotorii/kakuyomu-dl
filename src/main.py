@@ -36,10 +36,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SCRAPERS = {
-    r"\d{15,}": KakuyomuScraper,
-    r"n\d{4}[a-z]{1,2}": NaroScraper,
-    r"\d{1,8}": HamelnScraper,
+SCRAPERS_ID: list[tuple[str, tuple[type, ...]]] = [
+    (r"\d{15,}", (KakuyomuScraper,)),
+    (r"n\d{4}[a-z]{1,2}", (NaroScraper,)),
+    (r"\d{1,8}", (HamelnScraper, AkatsukiScraper)),
+]
+
+SCRAPERS_SITE = {
+    r"kakuyomu": KakuyomuScraper,
+    r"syosetu\.com": NaroScraper,
+    r"syosetu\.org": HamelnScraper,
+    r"akatsuki": AkatsukiScraper,
+}
+
+SITE_NAMES = {
+    HamelnScraper: "Hameln",
+    AkatsukiScraper: "Akatsuki",
 }
 
 
@@ -63,12 +75,37 @@ def parse_episode_selection(spec: str, total: int) -> list[int]:
     return valid
 
 
-def get_scraper(series_id: str, delay: float) -> BaseScraper:
-    for match, cls in SCRAPERS.items():
-        if re.fullmatch(match, series_id, re.IGNORECASE):
-            return cls(delay=delay)
-    print(f"[error] Unsupported series ID: {series_id!r}.", file=sys.stderr)
-    sys.exit(1)
+def get_scraper(series: str, delay: float) -> BaseScraper:
+    series_id, site = parse_series_id(series)
+    if site:
+        for pattern, cls in SCRAPERS_SITE.items():
+            if re.match(pattern, site):
+                return cls(delay=delay)
+    matches: tuple[type, ...] = ()
+    for pattern, classes in SCRAPERS_ID:
+        if re.fullmatch(pattern, series_id, re.IGNORECASE):
+            matches = classes
+            break
+
+    if not matches:
+        print(f"[error] Unsupported series ID: {series_id!r}.", file=sys.stderr)
+        sys.exit(1)
+
+    if len(matches) == 1:
+        return matches[0](delay=delay)
+
+    print(f"Series ID {series_id!r} is ambiguous. Which site is this from?")
+    for i, cls in enumerate(matches, start=1):
+        print(f"  {i}. {SITE_NAMES[cls]}")
+    choice = input("> ").strip()
+    try:
+        idx = int(choice) - 1
+        if not (0 <= idx < len(matches)):
+            raise ValueError
+    except ValueError:
+        print(f"[error] Invalid selection: {choice!r}.", file=sys.stderr)
+        sys.exit(1)
+    return matches[idx](delay=delay)
 
 
 def print_toc(entries: list[TocEntry]) -> None:
@@ -130,16 +167,16 @@ def bookmark_config_init(config: BookmarkUpdateConfig) -> BookmarkUpdateConfig:
 
 
 def cmd_toc(args: argparse.Namespace) -> None:
-    series_id = parse_series_id(args.series)
-    scraper = get_scraper(series_id, args.delay)
+    scraper = get_scraper(args.series, args.delay)
+    series_id, _ = parse_series_id(args.series)
     entries = scraper.fetch_toc(series_id)
     print_toc(entries)
 
 
 def cmd_fetch(args: argparse.Namespace) -> None:
-    series_id = parse_series_id(args.series)
+    series_id, _ = parse_series_id(args.series)
     config = fetch_config_init(FetchConfig(), args)
-    scraper = get_scraper(series_id, args.delay)
+    scraper = get_scraper(args.series, args.delay)
     parser = EpisodeParser()
     out_dir = config.out_dir / series_id
     xhtml_dir = config.out_dir / series_id / "xhtml"
@@ -235,8 +272,8 @@ def cmd_fetch(args: argparse.Namespace) -> None:
 
 
 def cmd_epub(args: argparse.Namespace) -> None:
-    series_id = parse_series_id(args.series)
-    scraper = get_scraper(series_id, args.delay)
+    series_id, _ = parse_series_id(args.series)
+    scraper = get_scraper(args.series, args.delay)
     apollo = cache.load(series_id)
     config = epub_config_init(EpubConfig(), args)
     xhtml_dir = config.xhtml_dir / series_id
@@ -270,7 +307,7 @@ def cmd_epub(args: argparse.Namespace) -> None:
 
 
 def cmd_check(args: argparse.Namespace) -> None:
-    series_id = parse_series_id(args.series)
+    series_id, _ = parse_series_id(args.series)
 
     old_apollo = cache.load(series_id)
     if not old_apollo:
@@ -278,7 +315,7 @@ def cmd_check(args: argparse.Namespace) -> None:
         return
 
     print("Fetching latest TOC…")
-    scraper = get_scraper(series_id, args.delay)
+    scraper = get_scraper(args.series, args.delay)
     _, _, new_apollo = scraper.fetch_meta_and_toc(series_id)
 
     result = cache.diff(old_apollo, new_apollo, series_id)
@@ -313,8 +350,8 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
 
     if args.add:
         for series in args.add:
-            series_id = parse_series_id(series)
-            scraper = get_scraper(series_id, args.delay)
+            series_id, _ = parse_series_id(series)
+            scraper = get_scraper(series, args.delay)
             meta = scraper.fetch_work_meta(series_id)
             status = parse_status(meta.status)
             if series_id in [dict["series_id"] for dict in bookmarks]:
@@ -336,7 +373,9 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         return
 
     if args.delete:
-        series_id = [parse_series_id(series) for series in args.delete]
+        series_id = [
+            id for id, _ in (parse_series_id(series) for series in args.delete)
+        ]
         bookmarks = [dict for dict in bookmarks if dict["series_id"] not in series_id]
         with open(FILE, "w", encoding="utf-8") as f:
             json.dump(bookmarks, f, ensure_ascii=False, indent=4)
@@ -531,7 +570,7 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_debug(args: argparse.Namespace) -> None:
     scraper = AkatsukiScraper(delay=args.delay)
     # data = scraper._fetch_next_data(args.series)
-    series_id = parse_series_id(args.series)
+    series_id, _ = parse_series_id(args.series)
     entries = scraper.fetch_toc(series_id)
     # _, _, _, toc = scraper._parse_eplist(data)
     print_toc(entries)

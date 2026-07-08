@@ -4,7 +4,7 @@ import re
 import requests
 from bs4 import Tag
 
-from scrapers import BaseScraper, TocEntry
+from scrapers import BaseScraper, Episode, RawParagraph, TocEntry
 from utils import EPOCH, parse_date, parse_redirect, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)
@@ -14,6 +14,10 @@ WORK_URL = BASE_URL + "stories/index/novel_id~{work_id}"
 META_URL = "https://www.akatsuki-novels.com/novels/view/{work_id}"
 
 EP_URL = BASE_URL + "stories/view/{episode_id}/novel_id~{work_id}"
+
+
+EPISODE_TITLE_SELECTOR = "h2"
+EPISODE_BODY_SELECTOR = "div.body-novel"
 
 META_FILTER = [
     "あらすじ",
@@ -45,8 +49,31 @@ class AkatsukiScraper(BaseScraper):
         )
         self.session.headers.update({"User-Agent": user_agent})
 
-    def fetch_episode(self, entry: TocEntry, illus: bool = True):
-        return
+    def fetch_episode(self, entry: TocEntry, illus: bool = True) -> Episode:
+        logger.info(f"Fetching episode {entry.index}: {entry.title}")
+        soup = self._get_soup(entry.url)
+
+        title_tag = soup.select_one(EPISODE_TITLE_SELECTOR)
+        title_text = list(title_tag.stripped_strings or [])
+        category = title_text[-2] if len(title_text) > 1 else entry.category
+        title = title_text[-1] if title_text else entry.title
+
+        body_tags = soup.select(EPISODE_BODY_SELECTOR)
+        raw_paragraphs: list[RawParagraph] = []
+        if body_tags:
+            for i, tag in enumerate(body_tags):
+                raw_paragraphs += self._parse_paragraph(tag)
+                if i < len(body_tags) - 1:
+                    raw_paragraphs.append(RawParagraph(text="", is_hr=True))
+        else:
+            logger.warning(f"Body not found for episode {entry.episode_id}")
+        return Episode(
+            index=entry.index,
+            title=title,
+            category=category,
+            episode_id=entry.episode_id,
+            raw_paragraphs=raw_paragraphs,
+        )
 
     def fetch_image(self, url: str) -> tuple[bytes, str]:
         r = self.session.get(url, timeout=self.timeout)
@@ -55,7 +82,7 @@ class AkatsukiScraper(BaseScraper):
         return r.content, content_type
 
     def _fetch_next_data(self, url: str) -> dict:
-        series_id = parse_series_id(url)
+        series_id, _ = parse_series_id(url)
         meta_url = META_URL.format(work_id=series_id)
         soup = self._get_soup(meta_url)
         meta = soup.select_one("table")
@@ -235,3 +262,36 @@ class AkatsukiScraper(BaseScraper):
             if entry.get("episodeUnions"):
                 toc.append({"__ref": key})
         return episodes, chapters, toc_ch, toc
+
+    def _parse_paragraph(self, tag: Tag) -> list[RawParagraph]:
+        paragraphs: list[RawParagraph] = []
+        last_child = None
+        for child in tag.children:
+            if isinstance(child, str):
+                if paragraphs and last_child not in ["br", "hr"]:
+                    paragraphs[-1].text += child
+                else:
+                    is_blank = not child.strip()
+                    paragraphs.append(RawParagraph(text=child, is_blank=is_blank))
+            elif child.name == "br":
+                if last_child == "br":
+                    paragraphs.append(RawParagraph(text="", is_blank=True))
+            elif child.name == "hr":
+                if paragraphs and paragraphs[-1].is_blank:
+                    paragraphs.pop()
+                paragraphs.append(RawParagraph(text="", is_hr=True))
+            elif child.name == "a":
+                outer = str(child)
+                if paragraphs and last_child not in ["br", "hr"]:
+                    paragraphs[-1].text += outer
+                else:
+                    paragraphs.append(RawParagraph(text=outer, is_blank=False))
+            else:
+                is_blank = not child.get_text(strip=True)
+                text = self._extract_text(child, is_blank)
+                if paragraphs and last_child not in ["br", "hr"]:
+                    paragraphs[-1].text += text
+                else:
+                    paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
+            last_child = child.name
+        return paragraphs
