@@ -223,5 +223,6 @@ __marimo__/
 # Output
 out/
 
-# Cookies
+# Config
+bookmarks.json
 cf_cookies.json

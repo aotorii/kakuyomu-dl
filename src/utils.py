@@ -43,18 +43,26 @@ SITE_ID: list[tuple[str, tuple[str, ...]]] = [
     (r"n\d{4}[a-z]{1,2}", ("syosetu",)),
     (r"\d{1,8}", ("hameln", "akatsuki")),
 ]
+SITE_BASE = {
+    "kakuyomu": "kakuyomu.jp/works/",
+    "syosetu": "syosetu.com/",
+    "hameln": "syosetu.org/novel/",
+    "akatsuki": "akatsuki-novels.com/stories/index/novel_id~",
+}
 
 
 ROOT = Path(__file__).resolve().parent.parent
 
 ASSETS_DIR = ROOT / "assets"
 OUT_DIR = ROOT / "out"
+CONFIG_DIR = ROOT / "config"
 EPUB_DIR = OUT_DIR / "epub"
 
 OUT_DIR.mkdir(exist_ok=True)
 EPUB_DIR.mkdir(exist_ok=True)
+CONFIG_DIR.mkdir(exist_ok=True)
 
-COOKIES = ROOT / "cf_cookies.json"
+COOKIES = CONFIG_DIR / "cf_cookies.json"
 
 
 @dataclass
@@ -185,6 +193,10 @@ def parse_episode_selection(spec: str, total: int) -> list[int]:
     return valid
 
 
+def get_base(site: str, series_id: str) -> str:
+    return SITE_BASE[site] + series_id
+
+
 def clean_title(title: str, clean: bool) -> str:
     return PROMO_RE.sub("", title).strip() if clean else title
 
@@ -218,6 +230,21 @@ def print_meta(meta: WorkMeta) -> None:
         print(f"  {key:<{width}}   {value}")
 
 
+def print_bookmarks(bookmarks: list[dict]) -> None:
+    header = ("#", "Title", "Author", "ID", "Status")
+    data = []
+    for i, series in enumerate(bookmarks):
+        data.append((
+            f"{i + 1:02d}",
+            chop_str(series["title"]),
+            series["author"],
+            series["series_id"],
+            series["status"],
+        ))
+    table = write_table(header, data)
+    print_table(table)
+
+
 def display_width(text: str) -> int:
     width = 0
     for ch in text:
@@ -229,6 +256,34 @@ def display_width(text: str) -> int:
         else:
             width += 1
     return width
+
+
+def chop_str(text: str, width: int = 35) -> str:
+    if len(text) > width:
+        return text[:width] + "…"
+    return text
+
+
+def write_table(
+    header: tuple[str, ...], data: list[tuple[str, ...]]
+) -> list[tuple[tuple[str, ...], int]]:
+    table = []
+    for i, entry in enumerate(header):
+        column = (entry,) + tuple(row[i] for row in data)
+        width = max(display_width(entry) for entry in column)
+        table.append((column, width))
+    return table
+
+
+def print_table(table: list[tuple[tuple[str, ...], int]]) -> None:
+    height = len(table[0][0])
+    for i in range(height):
+        row = "  | "
+        for column, width in table:
+            space = width - display_width(column[i])
+            left = space // 2
+            row += " " * left + f"{column[i]}" + " " * (space - left) + " | "
+        print(row)
 
 
 def better_view(data: list[tuple[str, str]]) -> str:

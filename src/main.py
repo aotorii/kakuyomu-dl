@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 import cache
-from config import OUT_DIR, BookmarkUpdateConfig, EpubConfig, FetchConfig
+from config import BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
 from parser import EpisodeParser
 from scrapers import (
@@ -19,13 +19,15 @@ from scrapers import (
     WorkImage,
 )
 from utils import (
+    CONFIG_DIR,
     better_view,
     display_title,
+    get_base,
     parse_episode_selection,
     parse_id_and_site,
     parse_plural,
-    parse_series_id,
     parse_status,
+    print_bookmarks,
     print_meta,
 )
 from writer import XhtmlWriter
@@ -283,7 +285,7 @@ def cmd_check(args: argparse.Namespace) -> None:
 
 
 def cmd_bookmark(args: argparse.Namespace) -> None:
-    FILE = OUT_DIR / "bookmarks.json"
+    FILE = CONFIG_DIR / "bookmarks.json"
     try:
         with open(FILE, "r", encoding="utf-8") as f:
             bookmarks = json.load(f)
@@ -302,6 +304,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
             bookmark = {
                 "title": meta.title,
                 "author": meta.author,
+                "site": site,
                 "series_id": series_id,
                 "status": status,
             }
@@ -315,8 +318,9 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         return
 
     if args.delete:
-        series_id = [parse_series_id(series) for series in args.delete]
-        bookmarks = [dict for dict in bookmarks if dict["series_id"] not in series_id]
+        indices = [int(idx) - 1 for idx in args.delete]
+        for index in sorted(indices, reverse=True):
+            bookmarks.pop(index)
         with open(FILE, "w", encoding="utf-8") as f:
             json.dump(bookmarks, f, ensure_ascii=False, indent=4)
         return
@@ -334,9 +338,9 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         for i, series in enumerate(bookmarks):
             title = f"#{i + 1:02d} {series['title']}"
             print(f"\n{display_title(title)}\n")
-            series_id = series["series_id"]
+            base = get_base(series["site"], series["series_id"])
             fetch_args = argparse.Namespace(
-                series=series_id,
+                series=base,
                 delay=args.delay,
                 episodes=None,
                 out_dir=config.xhtml_dir,
@@ -353,18 +357,13 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         for i, series in enumerate(bookmarks):
             title = f"#{i + 1:02d} {series['title']}"
             print(f"\n{display_title(title)}\n")
-            series_id = series["series_id"]
-            check_args = argparse.Namespace(series=series_id, delay=args.delay)
+            base = get_base(series["site"], series["series_id"])
+            check_args = argparse.Namespace(series=base, delay=args.delay)
             cmd_check(check_args)
         return
 
-    print(f"{len(bookmarks)} series found on the bookmark list:")
-    for i, series in enumerate(bookmarks):
-        print(f"\n#{i + 1:02d}")
-        print(f"  {'Title:':<12}{series['title']}")
-        print(f"  {'Author:':<12}{series['author']}")
-        print(f"  {'Series id:':<12}{series['series_id']}")
-        print(f"  {'Status:':<12}{series['status']}")
+    print(f"{len(bookmarks)} series found on the bookmark list:\n")
+    print_bookmarks(bookmarks)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -488,7 +487,7 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument(
         "--delete",
         nargs="+",
-        metavar="SERIES",
+        metavar="INDEX",
         help="delete series from your bookmark list",
     )
     group.add_argument(
@@ -508,7 +507,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 # def cmd_debug(args: argparse.Namespace) -> None:
-# return
+#     return
 
 
 def main() -> None:
