@@ -23,13 +23,15 @@ class UpdateResult:
     meta_updated: bool
 
 
-def cache_path(series_id: str, base_dir: str | Path = OUT_DIR) -> Path:
-    return Path(base_dir) / series_id / CACHE_FILENAME
+def cache_path(site: str, series_id: str, base_dir: str | Path = OUT_DIR) -> Path:
+    return Path(base_dir) / site / series_id / CACHE_FILENAME
 
 
-def save(apollo_state: dict, series_id: str, base_dir: str | Path = OUT_DIR) -> Path:
+def save(
+    apollo_state: dict, site: str, series_id: str, base_dir: str | Path = OUT_DIR
+) -> Path:
     filtered = _filter_apollo(apollo_state, series_id)
-    path = cache_path(series_id, base_dir)
+    path = cache_path(site, series_id, base_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(filtered, ensure_ascii=False, indent=2),
@@ -39,8 +41,8 @@ def save(apollo_state: dict, series_id: str, base_dir: str | Path = OUT_DIR) -> 
     return path
 
 
-def load(series_id: str, base_dir: str | Path = OUT_DIR) -> dict | None:
-    path = cache_path(series_id, base_dir)
+def load(site: str, series_id: str, base_dir: str | Path = OUT_DIR) -> dict | None:
+    path = cache_path(site, series_id, base_dir)
     if not path.exists():
         return None
     logger.info(f"TOC cache loaded: {path}")

@@ -19,16 +19,30 @@ PROMO_RE = re.compile(
 )
 SCENE_BREAK_RE = re.compile(r"^[　\s\*＊※◆◇■□▼△▽○●◎〇—―─·・…〜~＝=\-_]+$")
 MITE_RE = re.compile(r"//(\d+)\.mitemin\.net/(i\d+)/")
+SERIES_ID_RE = re.compile(
+    r"(?:kakuyomu\.jp/works/|syosetu\.com/|syosetu\.org/novel/|akatsuki-novels\.com/stories/index/novel_id~)([\da-z]+)"
+)
 
 EPOCH = datetime.fromtimestamp(0, timezone.utc).isoformat().replace("+00:00", "Z")
 
-SITE = {
-    r"ncode": {"site": "naro", "color": "#18b7cd"},
-    r"novel18": {"site": "naro18", "color": "#db7dc4"},
-    r"kakuyomu": {"site": "kakuyomu", "color": "#0099cc"},
-    r"syosetu\.org": {"site": "hameln", "color": "#000000"},
-    r"akatsuki": {"site": "akatsuki", "color": "#202032"},
+SITE_COLORS = {
+    r"kakuyomu": {"id": "0", "color": "#0099cc"},
+    r"ncode": {"id": "1", "color": "#18b7cd"},
+    r"novel18": {"id": "2", "color": "#db7dc4"},
+    r"syosetu\.org": {"id": "3", "color": "#000000"},
+    r"akatsuki": {"id": "4", "color": "#202032"},
 }
+SITE_NAMES = {
+    r"kakuyomu": "kakuyomu",
+    r"syosetu\.com": "syosetu",
+    r"syosetu\.org": "hameln",
+    r"akatsuki": "akatsuki",
+}
+SITE_ID: list[tuple[str, tuple[str, ...]]] = [
+    (r"\d{15,}", ("kakuyomu",)),
+    (r"n\d{4}[a-z]{1,2}", ("syosetu",)),
+    (r"\d{1,8}", ("hameln", "akatsuki")),
+]
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -68,18 +82,52 @@ def parse_status(status: int) -> str:
     return "Running" if status else "Completed"
 
 
-def parse_series_id(value: str) -> tuple[str, str | None]:
+def parse_id_and_site(value: str) -> tuple[str, str]:
+    series_id = parse_series_id(value)
+    site = parse_site(value)
+    return series_id, site
+
+
+def parse_series_id(value: str) -> str:
     value = value.strip().rstrip("/")
-    match = re.search(
-        r"(kakuyomu\.jp/works/|syosetu\.com/|syosetu\.org/novel/|akatsuki-novels\.com/stories/index/novel_id~)([\da-z]+)",
-        value,
-    )
+    match = SERIES_ID_RE.search(value)
     if match:
-        return match.group(2), match.group(1)
+        return match.group(1)
     if re.fullmatch(r"[\da-z]+", value, re.IGNORECASE):
-        return value.lower(), None
+        return value.lower()
     print(f"[error] Could not parse a series ID from: {value!r}.", file=sys.stderr)
     sys.exit(1)
+
+
+def parse_site(value: str) -> str:
+    value = value.strip().rstrip("/")
+    for pattern, site in SITE_NAMES.items():
+        if re.search(pattern, value):
+            return site
+    series_id = parse_series_id(value)
+    matches: tuple[type, ...] = ()
+    for pattern, sites in SITE_ID:
+        if re.fullmatch(pattern, series_id, re.IGNORECASE):
+            matches = sites
+            break
+    if not matches:
+        print(f"[error] Unsupported series ID: {series_id!r}.", file=sys.stderr)
+        sys.exit(1)
+    if len(matches) == 1:
+        return matches[0]
+
+    print(f"Series ID {series_id!r} is ambiguous. Which site is this from?")
+    for i, site in enumerate(matches, start=1):
+        print(f"  {i}. {site}")
+    choice = input("> ").strip()
+    try:
+        idx = int(choice) - 1
+        if not (0 <= idx < len(matches)):
+            raise ValueError
+    except ValueError:
+        print(f"[error] Invalid selection: {choice!r}.", file=sys.stderr)
+        sys.exit(1)
+    return matches[idx]
 
 
 def parse_date(date: str) -> str | None:
@@ -115,6 +163,26 @@ def parse_redirect(url: str) -> str:
         target = qs.get("url", [""])[0]
         url = unquote(target)
     return url
+
+
+def parse_episode_selection(spec: str, total: int) -> list[int]:
+    indices: set[int] = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if "-" in part:
+            start, end = part.split("-", 1)
+            indices.update(range(int(start), int(end) + 1))
+        else:
+            indices.add(int(part))
+
+    valid = sorted(i for i in indices if 1 <= i <= total)
+    invalid = sorted(i for i in indices if i < 1 or i > total)
+    if invalid:
+        print(
+            f"[warning] Ignoring out-of-range episode indices: {invalid}",
+            file=sys.stderr,
+        )
+    return valid
 
 
 def clean_title(title: str, clean: bool) -> str:
@@ -259,7 +327,7 @@ def _place_visual(
 def generate_cover(
     title: str, author: str, site: dict, key_visual: bytes | None = None
 ) -> bytes:
-    identifier = site.get("site")
+    identifier = site.get("id")
     color = site.get("color")
     bg_path = ASSETS_DIR / "covers" / f"cover_{identifier}.png"
     img = Image.open(bg_path).convert("RGB")

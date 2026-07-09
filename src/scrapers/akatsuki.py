@@ -82,7 +82,7 @@ class AkatsukiScraper(BaseScraper):
         return r.content, content_type
 
     def _fetch_next_data(self, url: str) -> dict:
-        series_id, _ = parse_series_id(url)
+        series_id = parse_series_id(url)
         meta_url = META_URL.format(work_id=series_id)
         soup = self._get_soup(meta_url)
         meta = soup.select_one("table")

@@ -9,7 +9,7 @@ from scrapers import TocEntry, WorkMeta
 from utils import (
     EPUB_DIR,
     OUT_DIR,
-    SITE,
+    SITE_COLORS,
     clean_title,
     generate_colophon,
     generate_cover,
@@ -176,8 +176,8 @@ class EpubBuilder:
 
         book = epub.EpubBook()
         title = clean_title(meta.title, self.clean)
-        site = self._get_site(meta.work_url)
-        identifier = site.get("site")
+        site = self._get_cover(meta.work_url)
+        identifier = site.get("id")
         book.set_identifier(f"{identifier}-{meta.series_id}-{uuid.uuid4().hex[:8]}")
         book.set_title(title)
         book.set_language(self.language)
@@ -331,8 +331,8 @@ class EpubBuilder:
         logger.info(f"EPUB written: {out_path}")
         return out_path
 
-    def _get_site(self, url: str) -> dict:
-        for match, site in SITE.items():
+    def _get_cover(self, url: str) -> dict:
+        for match, value in SITE_COLORS.items():
             if re.search(match, url, re.IGNORECASE):
-                return site
+                return value
         raise ValueError(f"Unknown url: {url!r}")

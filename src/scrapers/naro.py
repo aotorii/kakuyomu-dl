@@ -109,7 +109,7 @@ class NaroScraper(BaseScraper):
         return r.content, content_type
 
     def _fetch_next_data(self, url: str) -> dict:
-        series_id, _ = parse_series_id(url)
+        series_id = parse_series_id(url)
         parsed = urlparse(url)
         base_url = f"{parsed.scheme}://{parsed.netloc}"
         meta_url, isr18 = META_URL.format(api="novelapi", work_id=series_id), 0
