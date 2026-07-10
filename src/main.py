@@ -362,7 +362,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
             cmd_check(check_args)
         return
 
-    print(f"{len(bookmarks)} series found on the bookmark list:\n")
+    print(f"{len(bookmarks)} series found on the bookmark list:")
     print_bookmarks(bookmarks)
 
 

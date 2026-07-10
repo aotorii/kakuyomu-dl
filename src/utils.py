@@ -276,14 +276,27 @@ def write_table(
 
 
 def print_table(table: list[tuple[tuple[str, ...], int]]) -> None:
+
+    def print_hr(branch: str = "┼─") -> None:
+        hr = ""
+        for j, (_, width) in enumerate(table):
+            if j == 0:
+                hr += f" ─{branch}"
+            hr += "─" * width + branch
+        print(hr)
+
     height = len(table[0][0])
     for i in range(height):
-        row = "  | "
-        for column, width in table:
+        print_hr("┬─" if i == 0 else "┼─")
+        row = ""
+        for j, (column, width) in enumerate(table):
             space = width - display_width(column[i])
             left = space // 2
-            row += " " * left + f"{column[i]}" + " " * (space - left) + " | "
+            if j == 0:
+                row += "  │ "
+            row += " " * left + f"{column[i]}" + " " * (space - left) + "│ "
         print(row)
+    print_hr("┴─")
 
 
 def better_view(data: list[tuple[str, str]]) -> str:
