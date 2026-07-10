@@ -233,10 +233,16 @@ def print_meta(meta: WorkMeta) -> None:
 def print_bookmarks(bookmarks: list[dict]) -> None:
     header = ("#", "Title", "Author", "ID", "Status")
     data = []
+
+    def chop_title(text: str, width: int = 35) -> str:
+        if len(text) > width:
+            return text[:width] + "…"
+        return text
+
     for i, series in enumerate(bookmarks):
         data.append((
             f"{i + 1:02d}",
-            chop_str(series["title"]),
+            chop_title(series["title"]),
             series["author"],
             series["series_id"],
             series["status"],
@@ -258,16 +264,15 @@ def display_width(text: str) -> int:
     return width
 
 
-def chop_str(text: str, width: int = 35) -> str:
-    if len(text) > width:
-        return text[:width] + "…"
-    return text
-
-
 def write_table(
     header: tuple[str, ...], data: list[tuple[str, ...]]
 ) -> list[tuple[tuple[str, ...], int]]:
     table = []
+    is_invalid = sum(len(header) - len(row) for row in data)
+    if is_invalid:
+        raise ValueError(
+            "Please make sure every row of the table aligns with the header."
+        )
     for i, entry in enumerate(header):
         column = (entry,) + tuple(row[i] for row in data)
         width = max(display_width(entry) for entry in column)

@@ -4,7 +4,7 @@ import re
 import requests
 from bs4 import Tag
 
-from scrapers import BaseScraper, Episode, RawParagraph, TocEntry
+from scrapers import BaseScraper, Episode, RawParagraph, TocEntry, WorkImage
 from utils import EPOCH, parse_date, parse_redirect, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)
@@ -60,9 +60,70 @@ class AkatsukiScraper(BaseScraper):
 
         body_tags = soup.select(EPISODE_BODY_SELECTOR)
         raw_paragraphs: list[RawParagraph] = []
+
+        def _insert_image(tag: Tag, counter: int) -> RawParagraph:
+            src = tag.get("src", "")
+            if not src:
+                raise ValueError(f"Invalid image tag: {str(tag)!r}")
+            src = "https:" + src
+            if illus:
+                content, content_type = self.fetch_image(src)
+                return RawParagraph(
+                    text="",
+                    image=WorkImage(
+                        content=content,
+                        media_type=content_type,
+                        src=f"{entry.index}_{counter}",
+                    ),
+                )
+            return RawParagraph(
+                text=f"【挿絵{entry.index}-{counter}】", image=WorkImage(src=f"{src}")
+            )
+
+        def _parse_paragraph(tag: Tag, counter: int = 0) -> list[RawParagraph]:
+            paragraphs: list[RawParagraph] = []
+            last_child = None
+            for child in tag.children:
+                if isinstance(child, str):
+                    if paragraphs and last_child not in ["br", "hr"]:
+                        paragraphs[-1].text += child
+                    else:
+                        is_blank = not child.strip()
+                        paragraphs.append(RawParagraph(text=child, is_blank=is_blank))
+                elif child.name == "br":
+                    if last_child == "br":
+                        paragraphs.append(RawParagraph(text="", is_blank=True))
+                elif child.name == "hr":
+                    if paragraphs and paragraphs[-1].is_blank:
+                        paragraphs.pop()
+                    paragraphs.append(RawParagraph(text="", is_hr=True))
+                elif child.name == "a":
+                    outer = str(child)
+                    if paragraphs and last_child not in ["br", "hr"]:
+                        paragraphs[-1].text += outer
+                    else:
+                        paragraphs.append(RawParagraph(text=outer, is_blank=False))
+                elif child.select("img"):
+                    for tag in child.select("img"):
+                        counter += 1
+                        paragraphs.append(_insert_image(tag, counter))
+                elif child.name == "img":
+                    counter += 1
+                    paragraphs.append(_insert_image(child, counter))
+                else:
+                    is_blank = not child.get_text(strip=True)
+                    text = self._extract_text(child, is_blank)
+                    if paragraphs and last_child not in ["br", "hr"]:
+                        paragraphs[-1].text += text
+                    else:
+                        paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
+                last_child = child.name
+            return paragraphs
+
         if body_tags:
             for i, tag in enumerate(body_tags):
-                raw_paragraphs += self._parse_paragraph(tag)
+                counter = sum(1 for p in raw_paragraphs if p.image)
+                raw_paragraphs += _parse_paragraph(tag, counter)
                 if i < len(body_tags) - 1:
                     raw_paragraphs.append(RawParagraph(text="", is_hr=True))
         else:
@@ -262,36 +323,3 @@ class AkatsukiScraper(BaseScraper):
             if entry.get("episodeUnions"):
                 toc.append({"__ref": key})
         return episodes, chapters, toc_ch, toc
-
-    def _parse_paragraph(self, tag: Tag) -> list[RawParagraph]:
-        paragraphs: list[RawParagraph] = []
-        last_child = None
-        for child in tag.children:
-            if isinstance(child, str):
-                if paragraphs and last_child not in ["br", "hr"]:
-                    paragraphs[-1].text += child
-                else:
-                    is_blank = not child.strip()
-                    paragraphs.append(RawParagraph(text=child, is_blank=is_blank))
-            elif child.name == "br":
-                if last_child == "br":
-                    paragraphs.append(RawParagraph(text="", is_blank=True))
-            elif child.name == "hr":
-                if paragraphs and paragraphs[-1].is_blank:
-                    paragraphs.pop()
-                paragraphs.append(RawParagraph(text="", is_hr=True))
-            elif child.name == "a":
-                outer = str(child)
-                if paragraphs and last_child not in ["br", "hr"]:
-                    paragraphs[-1].text += outer
-                else:
-                    paragraphs.append(RawParagraph(text=outer, is_blank=False))
-            else:
-                is_blank = not child.get_text(strip=True)
-                text = self._extract_text(child, is_blank)
-                if paragraphs and last_child not in ["br", "hr"]:
-                    paragraphs[-1].text += text
-                else:
-                    paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
-            last_child = child.name
-        return paragraphs
