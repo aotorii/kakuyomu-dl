@@ -61,7 +61,7 @@ class AkatsukiScraper(BaseScraper):
         body_tags = soup.select(EPISODE_BODY_SELECTOR)
         raw_paragraphs: list[RawParagraph] = []
 
-        def _insert_image(tag: Tag, counter: int) -> RawParagraph:
+        def _insert_image(tag: Tag, counter: int = 0) -> RawParagraph:
             src = tag.get("src", "")
             if not src:
                 raise ValueError(f"Invalid image tag: {str(tag)!r}")
