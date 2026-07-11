@@ -53,7 +53,7 @@ options:
 
 ```
 usage: kakuyomu-dl fetch [-h] [--episodes SPEC] [--out-dir DIR] [--no-overwrite] [--epub] [--epub-out-dir DIR]
-                         [--epub-clean] [--no-illus]
+                         [--epub-clean] [--no-illus] [--batch-size N]
                          series
 
 positional arguments:
@@ -68,6 +68,7 @@ options:
   --epub-out-dir DIR  where to write the epub file when using --epub
   --epub-clean        remove possible sale promotion in the novel title when using --epub
   --no-illus          skip fetching illustrations from episode pages
+  --batch-size N      number of files processed per batch
 ```
 
 ```
