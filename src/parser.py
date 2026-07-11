@@ -26,7 +26,7 @@ class ParsedEpisode:
     index: int
     episode_id: str
     title: str
-    category: str
+    category: tuple[str, ...]
     blocks: list[Block] = field(default_factory=list)
 
     @property
@@ -45,15 +45,19 @@ class EpisodeParser:
             block = self._classify(raw)
             if block is None or (
                 block.type == BlockType.SCENE_BREAK
+                and not block.text
                 and blocks
                 and blocks[-1].type == BlockType.SCENE_BREAK
+                and not blocks[-1].text
             ):
                 continue
             blocks.append(block)
 
-        while blocks and blocks[0].type == BlockType.SCENE_BREAK:
+        while blocks and blocks[0].type == BlockType.SCENE_BREAK and not blocks[0].text:
             blocks.pop(0)
-        while blocks and blocks[-1].type == BlockType.SCENE_BREAK:
+        while (
+            blocks and blocks[-1].type == BlockType.SCENE_BREAK and not blocks[-1].text
+        ):
             blocks.pop()
 
         return ParsedEpisode(

@@ -94,7 +94,7 @@ class HamelnScraper(BaseScraper):
 
         def _parse_paragraph(tag: Tag, counter: int = 0) -> list[RawParagraph]:
             paragraphs: list[RawParagraph] = []
-            last_child = None
+            last_child: str | None = None
             for child in tag.children:
                 if isinstance(child, str):
                     if paragraphs and last_child not in ["br", "hr"]:

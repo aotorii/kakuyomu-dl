@@ -18,7 +18,7 @@ class TocEntry:
     title: str
     url: str
     episode_id: str
-    category: str = ""
+    category: tuple[str, ...] = ()
     published_on: str = ""
     locked: bool = False
     meta: dict = field(default_factory=dict)
@@ -59,7 +59,7 @@ class RawParagraph:
 class Episode:
     index: int
     title: str
-    category: str
+    category: tuple[str, ...]
     episode_id: str
     raw_paragraphs: list[RawParagraph] = field(default_factory=list)
 
@@ -181,11 +181,58 @@ class BaseScraper(ABC):
         toc_refs = work_node.get("tableOfContentsV2", [])
         prop_refs = work_node.get("property", [])
         entries: list[TocEntry] = []
+        category: tuple[str, ...] = ()
         index = 1
 
         prop_keys = [prop_ref.get("__ref", "") for prop_ref in prop_refs]
         prop = {prop_key: work_node.get(prop_key) for prop_key in prop_keys}
 
+        # for toc_ref in toc_refs:
+        #     toc_key = toc_ref.get("__ref", "")
+        #     toc_node = apollo.get(toc_key, {})
+        #     if not toc_node:
+        #         continue
+
+        #     chapter_val = toc_node.get("chapter")
+        #     chapter_ref = (
+        #         chapter_val.get("__ref", "") if isinstance(chapter_val, dict) else ""
+        #     )
+        #     chapter_node = apollo.get(chapter_ref, {}) if chapter_ref else {}
+        #     category = chapter_node.get("title", "")
+
+        #     ep_refs = toc_node.get("episodeUnions", [])
+        #     for ep_ref in ep_refs:
+        #         ep_key = ep_ref.get("__ref", "")
+        #         ep_node = apollo.get(ep_key, {})
+
+        #         typename = ep_node.get("__typename", "") if ep_node else ""
+        #         locked = typename == "EmptyEpisode"
+
+        #         episode_id = (
+        #             ep_node.get("id", ep_key.split(":")[-1])
+        #             if ep_node
+        #             else ep_key.split(":")[-1]
+        #         )
+        #         title = ep_node.get("title", "") if ep_node else ""
+        #         published_at = ep_node.get("publishedAt", "") if ep_node else ""
+
+        #         published_on = published_at[:10]
+
+        #         entries.append(
+        #             TocEntry(
+        #                 index=index,
+        #                 title=title,
+        #                 url=self._get_ep_url(work_url=work_url, episode_id=episode_id),
+        #                 episode_id=episode_id,
+        #                 category=category,
+        #                 published_on=published_on,
+        #                 locked=locked,
+        #                 meta=prop,
+        #             )
+        #         )
+        #         index += 1
+
+        level = 0
         for toc_ref in toc_refs:
             toc_key = toc_ref.get("__ref", "")
             toc_node = apollo.get(toc_key, {})
@@ -197,13 +244,20 @@ class BaseScraper(ABC):
                 chapter_val.get("__ref", "") if isinstance(chapter_val, dict) else ""
             )
             chapter_node = apollo.get(chapter_ref, {}) if chapter_ref else {}
-            category = chapter_node.get("title", "")
+            chapter_title = chapter_node.get("title")
+            chapter_level = chapter_node.get("level", 0)
+            if chapter_title is not None:
+                if chapter_level > level:
+                    category += (chapter_title,)
+                elif chapter_level <= level:
+                    delta = chapter_level - level - 1
+                    category = category[:delta] + (chapter_title,)
+            level = chapter_level
 
             ep_refs = toc_node.get("episodeUnions", [])
             for ep_ref in ep_refs:
                 ep_key = ep_ref.get("__ref", "")
                 ep_node = apollo.get(ep_key, {})
-
                 typename = ep_node.get("__typename", "") if ep_node else ""
                 locked = typename == "EmptyEpisode"
 
@@ -214,7 +268,6 @@ class BaseScraper(ABC):
                 )
                 title = ep_node.get("title", "") if ep_node else ""
                 published_at = ep_node.get("publishedAt", "") if ep_node else ""
-
                 published_on = published_at[:10]
 
                 entries.append(

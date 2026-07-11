@@ -243,62 +243,23 @@ class EpubBuilder:
                 f"(run 'fetch' to download them): [{','.join(get_spec(missing))}]"
             )
 
-        any_category = any(e.category for e in toc_entries)
-
-        if not any_category:
-            book.toc = tuple(
+        entries = [
+            (
+                entry.category or (),
                 epub.Link(
-                    chapter_by_episode[e.episode_id].file_name + f"#toc-{e.index:03d}",
-                    e.title,
-                    chapter_by_episode[e.episode_id].id,
-                )
-                for e in toc_entries
-                if e.episode_id in chapter_by_episode
+                    chapter_by_episode[entry.episode_id].file_name
+                    + f"#toc-{entry.index:03d}",
+                    entry.title,
+                    chapter_by_episode[entry.episode_id].id,
+                ),
             )
-        else:
-            toc_nested = []
-            current_section: str | None = None
-            current_links: list[epub.Link] = []
-
-            def flush_section():
-                if current_section and current_links:
-                    toc_nested.append((
-                        epub.Section(current_section),
-                        tuple(current_links),
-                    ))
-
-            for entry in toc_entries:
-                if entry.episode_id not in chapter_by_episode:
-                    continue
-                ch = chapter_by_episode[entry.episode_id]
-                link = epub.Link(
-                    ch.file_name + f"#toc-{entry.index:03d}", entry.title, ch.id
-                )
-
-                if not entry.category:
-                    flush_section()
-                    current_section = None
-                    current_links = []
-                    toc_nested.append(link)
-                    continue
-                if entry.category != current_section:
-                    flush_section()
-                    current_section = entry.category
-                    current_links = [link]
-                else:
-                    current_links.append(link)
-
-            flush_section()
-            book.toc = tuple(toc_nested)
+            for entry in toc_entries
+            if entry.episode_id in chapter_by_episode
+        ]
+        book.toc = self._build_toc(entries)
 
         if image_dir.exists():
             for img_path in sorted(image_dir.glob("*")):
-                # ext = img_path.suffix.lstrip(".")
-                # media_type = {
-                #     "jpg": "image/jpeg",
-                #     "png": "image/png",
-                #     "webp": "image/webp",
-                # }.get(ext, "image/jpeg")
                 content = process_image(img_path.read_bytes())
                 epub_img = epub.EpubImage(
                     uid=f"img_{img_path.stem}",
@@ -336,3 +297,30 @@ class EpubBuilder:
             if re.search(match, url, re.IGNORECASE):
                 return value
         raise ValueError(f"Unknown url: {url!r}")
+
+    def _build_toc(
+        self, entries: list[tuple[tuple[str, ...], epub.Link]], depth: int = 0
+    ) -> tuple:
+        result = []
+        i, n = 0, len(entries)
+        while i < n:
+            category, link = entries[i]
+            if depth >= len(category):
+                result.append(link)
+                i += 1
+                continue
+
+            key = category[depth]
+            group = []
+            j = i
+            while j < n:
+                c2, l2 = entries[j]
+                if depth < len(c2) and c2[depth] == key:
+                    group.append((c2, l2))
+                    j += 1
+                else:
+                    break
+            children = self._build_toc(group, depth + 1)
+            result.append((epub.Section(key), children))
+            i = j
+        return tuple(result)

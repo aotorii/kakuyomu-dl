@@ -79,7 +79,8 @@ class XhtmlWriter:
         lines: list[str] = []
 
         if episode.category:
-            lines.append(CATEGORY_TEMPLATE.substitute(text=escape(episode.category)))
+            for level in episode.category:
+                lines.append(CATEGORY_TEMPLATE.substitute(text=escape(level)))
 
         lines.append(
             TITLE_TEMPLATE.substitute(
@@ -94,11 +95,11 @@ class XhtmlWriter:
 
             elif block.type == BlockType.SCENE_BREAK:
                 if block.text:
-                    lines.append(BLANK_LINE)
+                    # lines.append(BLANK_LINE)
                     lines.append(
                         f'<p class="scene-break-deco">{escape(block.text)}</p>'
                     )
-                    lines.append(BLANK_LINE)
+                    # lines.append(BLANK_LINE)
                 else:
                     lines.append(BLANK_LINE)
 
