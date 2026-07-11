@@ -1,3 +1,4 @@
+import argparse
 import io
 import json
 import re
@@ -6,6 +7,7 @@ import textwrap
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from itertools import islice
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -302,6 +304,23 @@ def print_table(table: list[tuple[tuple[str, ...], int]]) -> None:
             row += " " * left + f"{column[i]}" + " " * (space - left) + "│ "
         print(row)
     print_hr("┴─")
+
+
+def batched(iterable, n: int):
+    it = iter(iterable)
+    while batch := tuple(islice(it, n)):
+        yield batch
+
+
+def positive_int(value) -> int:
+    try:
+        value = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid integer value: '{value}'")
+
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be greater than 0")
+    return value
 
 
 def better_view(data: list[tuple[str, str]]) -> str:

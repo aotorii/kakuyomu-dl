@@ -14,6 +14,7 @@ class FetchConfig:
     # e.g. epub_out_dir: str | Path = r"c:\Users\<username>\Downloads"
     clean_title: bool = False
     illustration: bool = True
+    batch_size: int = 20
 
 
 @dataclass

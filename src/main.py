@@ -20,6 +20,7 @@ from scrapers import (
 )
 from utils import (
     CONFIG_DIR,
+    batched,
     better_view,
     display_title,
     get_base,
@@ -27,6 +28,7 @@ from utils import (
     parse_id_and_site,
     parse_plural,
     parse_status,
+    positive_int,
     print_bookmarks,
     print_meta,
 )
@@ -83,8 +85,8 @@ def print_toc(entries: list[TocEntry]) -> None:
                 chapter = []
             if category:
                 print()
-                for i, sub in enumerate(category):
-                    print("  " * (level + i + 1) + f"[{sub}]")
+                for i, sub in enumerate(category, 1):
+                    print("  " * (level + i) + f"[{sub}]")
         chapter.append((str(episode.index), episode.title, f"{date}{lock}"))
     free = len(entries) - locked_count
     if chapter:
@@ -104,6 +106,7 @@ def fetch_config_init(config: FetchConfig, args: argparse.Namespace) -> FetchCon
     config.out_dir = Path(args.out_dir or config.out_dir)
     config.epub_out_dir = Path(args.epub_out_dir or config.epub_out_dir)
     config.illustration = not args.no_illus and config.illustration
+    config.batch_size = args.batch_size or config.batch_size
     return config
 
 
@@ -198,11 +201,13 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     if indices == []:
         print("Done. All xhtml files already exist.")
     else:
-        raw_episodes = scraper.fetch_episodes(
-            entries, indices=indices, illus=config.illustration
-        )
-        parsed = parser.parse_many(raw_episodes)
-        paths = writer.write_many(parsed)
+        paths = []
+        for batch in batched(entries, config.batch_size):
+            raw_episodes = scraper.fetch_episodes(
+                batch, indices=indices, illus=config.illustration
+            )
+            parsed = parser.parse_many(raw_episodes)
+            paths.extend(writer.write_many(parsed))
         skipped = to_fetch - len(indices or [])
         exist = (
             f"Skipped {parse_plural('file', skipped, 'existing xhtml ')}, "
@@ -440,6 +445,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-illus",
         action="store_true",
         help="skip fetching illustrations from episode pages",
+    )
+    fetch_p.add_argument(
+        "--batch-size",
+        type=positive_int,
+        metavar="N",
+        help="number of files processed per batch",
     )
     fetch_p.set_defaults(func=cmd_fetch)
 
