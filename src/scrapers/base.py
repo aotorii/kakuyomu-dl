@@ -98,10 +98,23 @@ class BaseScraper(ABC):
         apollo = self._apolloize(data, series_id)
         meta = self.parse_work_meta(apollo, series_id)
         entries = self.parse_toc(apollo, series_id)
+
+        def _count_chapters(categories: list[tuple[str, ...]]) -> int:
+            count = 0
+            i, n = 0, len(categories)
+            while i < n:
+                cat = categories[i]
+                j = i
+                while j < n and categories[j] == cat:
+                    j += 1
+                if cat:
+                    count += 1
+                i = j
+            return count
+
+        chapters_number = _count_chapters([e.category or () for e in entries])
         chapter = (
-            f"{parse_plural('chapter', len({e.category for e in entries if e.category}))}, "
-            if any(e.category for e in entries)
-            else ""
+            f"{parse_plural('chapter', chapters_number)}, " if chapters_number else ""
         )
         episode = f"{parse_plural('episode', len(entries))}"
         locked_number = sum(1 for episode in entries if episode.locked)
@@ -186,51 +199,6 @@ class BaseScraper(ABC):
 
         prop_keys = [prop_ref.get("__ref", "") for prop_ref in prop_refs]
         prop = {prop_key: work_node.get(prop_key) for prop_key in prop_keys}
-
-        # for toc_ref in toc_refs:
-        #     toc_key = toc_ref.get("__ref", "")
-        #     toc_node = apollo.get(toc_key, {})
-        #     if not toc_node:
-        #         continue
-
-        #     chapter_val = toc_node.get("chapter")
-        #     chapter_ref = (
-        #         chapter_val.get("__ref", "") if isinstance(chapter_val, dict) else ""
-        #     )
-        #     chapter_node = apollo.get(chapter_ref, {}) if chapter_ref else {}
-        #     category = chapter_node.get("title", "")
-
-        #     ep_refs = toc_node.get("episodeUnions", [])
-        #     for ep_ref in ep_refs:
-        #         ep_key = ep_ref.get("__ref", "")
-        #         ep_node = apollo.get(ep_key, {})
-
-        #         typename = ep_node.get("__typename", "") if ep_node else ""
-        #         locked = typename == "EmptyEpisode"
-
-        #         episode_id = (
-        #             ep_node.get("id", ep_key.split(":")[-1])
-        #             if ep_node
-        #             else ep_key.split(":")[-1]
-        #         )
-        #         title = ep_node.get("title", "") if ep_node else ""
-        #         published_at = ep_node.get("publishedAt", "") if ep_node else ""
-
-        #         published_on = published_at[:10]
-
-        #         entries.append(
-        #             TocEntry(
-        #                 index=index,
-        #                 title=title,
-        #                 url=self._get_ep_url(work_url=work_url, episode_id=episode_id),
-        #                 episode_id=episode_id,
-        #                 category=category,
-        #                 published_on=published_on,
-        #                 locked=locked,
-        #                 meta=prop,
-        #             )
-        #         )
-        #         index += 1
 
         level = 0
         for toc_ref in toc_refs:

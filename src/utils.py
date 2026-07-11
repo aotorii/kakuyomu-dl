@@ -268,7 +268,7 @@ def write_table(
     header: tuple[str, ...], data: list[tuple[str, ...]]
 ) -> list[tuple[tuple[str, ...], int]]:
     table = []
-    is_invalid = sum(len(header) - len(row) for row in data)
+    is_invalid = sum(abs(len(header) - len(row)) for row in data)
     if is_invalid:
         raise ValueError(
             "Please make sure every row of the table aligns with the header."

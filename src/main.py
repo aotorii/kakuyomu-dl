@@ -57,12 +57,23 @@ def print_toc(entries: list[TocEntry]) -> None:
     print()
     last_category = object()
     locked_count, chapter = 0, []
+
+    def tuple_suffix(now: tuple, last) -> tuple[tuple, int]:
+        if not isinstance(last, tuple):
+            return now, 0
+        n = min(len(now), len(last))
+        i = 0
+        while i < n and now[i] == last[i]:
+            i += 1
+        return now[i:], i
+
     for episode in entries:
         date = f"  ({episode.published_on})" if episode.published_on else ""
         lock = " (locked)" if episode.locked else ""
         if episode.locked:
             locked_count += 1
         if episode.category != last_category:
+            category, level = tuple_suffix(episode.category, last_category)
             last_category = episode.category
             if chapter:
                 indices = [x for x, _, _ in chapter]
@@ -70,8 +81,10 @@ def print_toc(entries: list[TocEntry]) -> None:
                 for index, ep in zip(indices, eps):
                     print(f"  {index.rjust(width)} {ep}")
                 chapter = []
-            if episode.category:
-                print(f"\n  [{episode.category}]")
+            if category:
+                print()
+                for i, sub in enumerate(category):
+                    print("  " * (level + i + 1) + f"[{sub}]")
         chapter.append((str(episode.index), episode.title, f"{date}{lock}"))
     free = len(entries) - locked_count
     if chapter:

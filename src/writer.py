@@ -95,13 +95,18 @@ class XhtmlWriter:
 
             elif block.type == BlockType.SCENE_BREAK:
                 if block.text:
-                    # lines.append(BLANK_LINE)
+                    lines.append(BLANK_LINE)
                     lines.append(
                         f'<p class="scene-break-deco">{escape(block.text)}</p>'
                     )
-                    # lines.append(BLANK_LINE)
+                    lines.append(BLANK_LINE)
                 else:
                     lines.append(BLANK_LINE)
+
+            elif block.type == BlockType.SPECIAL_BREAK:
+                lines.append(BLANK_LINE)
+                lines.append(f'<p class="scene-break-deco">{escape(block.text)}</p>')
+                lines.append(BLANK_LINE)
 
             elif block.type == BlockType.THEMATIC_BREAK:
                 lines.append(BLANK_LINE)

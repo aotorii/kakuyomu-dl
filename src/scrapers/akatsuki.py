@@ -55,7 +55,7 @@ class AkatsukiScraper(BaseScraper):
 
         title_tag = soup.select_one(EPISODE_TITLE_SELECTOR)
         title_text = list(title_tag.stripped_strings or [])
-        category = title_text[-2] if len(title_text) > 1 else entry.category
+        category = tuple(title_text[:-1]) if title_text else entry.category
         title = title_text[-1] if title_text else entry.title
 
         body_tags = soup.select(EPISODE_BODY_SELECTOR)
@@ -278,11 +278,28 @@ class AkatsukiScraper(BaseScraper):
             "episodeUnions": [],
             "chapter": None,
         }
+
+        level, section = 0, {}
+
+        def _flush_chapters(chapters: dict, section: dict, level: int) -> int:
+            if len(section) < level:
+                for i, (k, v) in enumerate(section.items(), 1):
+                    v["level"] = level - len(section) + i
+                    chapters[k] = v
+                return level
+            for i, (k, v) in enumerate(section.items(), 1):
+                v["level"] = i
+                chapters[k] = v
+            return len(section)
+
         for table in eplist:
             table = table.select_one("tbody")
             for tag in table.select("tr"):
                 ep_tag = tag.select_one("td a")
                 if ep_tag:
+                    if section:
+                        level = _flush_chapters(chapters, section, level)
+                        section = {}
                     ep_title = ep_tag.get_text(strip=True)
                     href = ep_tag.get("href", "")
                     match = re.search(r"/(\d+)/", href)
@@ -305,10 +322,9 @@ class AkatsukiScraper(BaseScraper):
                 ch_title = tag.get_text(strip=True)
                 ch_index += 1
                 ch_id = str(ch_index)
-                chapters[f"Chapter:{ch_id}"] = {
+                section[f"Chapter:{ch_id}"] = {
                     "__typename": "Chapter",
                     "id": ch_id,
-                    "level": 1,
                     "title": ch_title,
                 }
                 toc_ch[f"TableOfContentsChapter:{ch_id}"] = {
@@ -319,7 +335,6 @@ class AkatsukiScraper(BaseScraper):
                 }
         if not toc_ch.get("TableOfContentsChapter:").get("episodeUnions"):
             del toc_ch["TableOfContentsChapter:"]
-        for key, entry in toc_ch.items():
-            if entry.get("episodeUnions"):
-                toc.append({"__ref": key})
+        for key in toc_ch:
+            toc.append({"__ref": key})
         return episodes, chapters, toc_ch, toc

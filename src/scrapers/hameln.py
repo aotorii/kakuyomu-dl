@@ -70,7 +70,7 @@ class HamelnScraper(BaseScraper):
         start_tag = soup.select_one("span#analytics_start").tag
         title_tag = start_tag.find_previous_sibling()
         title_text = list(title_tag.stripped_strings or [])
-        category = title_text[0] if len(title_text) > 1 else entry.category
+        category = (title_text[0],) if len(title_text) > 1 else entry.category
         title = title_text[-1] if title_text else entry.title
 
         def _insert_image(tag: Tag, counter: int) -> RawParagraph:

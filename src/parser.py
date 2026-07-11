@@ -11,6 +11,7 @@ class BlockType(Enum):
     IMAGE = auto()
     LINK = auto()
     SCENE_BREAK = auto()
+    SPECIAL_BREAK = auto()
     THEMATIC_BREAK = auto()
 
 
@@ -40,24 +41,38 @@ class EpisodeParser:
 
     def parse(self, Episode: Episode) -> ParsedEpisode:
         blocks: list[Block] = []
+        last_block: BlockType | None = None
 
         for raw in Episode.raw_paragraphs:
             block = self._classify(raw)
-            if block is None or (
-                block.type == BlockType.SCENE_BREAK
-                and not block.text
-                and blocks
+            if block is None:
+                continue
+            if not blocks:
+                blocks.append(block)
+                continue
+            if (
+                block.type == BlockType.SPECIAL_BREAK
+                and not last_block == BlockType.SCENE_BREAK
                 and blocks[-1].type == BlockType.SCENE_BREAK
-                and not blocks[-1].text
+            ):
+                blocks.pop()
+            if (
+                not block.type == BlockType.SCENE_BREAK
+                and last_block == BlockType.SPECIAL_BREAK
+                and blocks[-1].type == BlockType.SCENE_BREAK
+            ):
+                blocks.pop()
+            last_block = blocks[-1].type
+            if (
+                block.type == BlockType.SCENE_BREAK
+                and last_block == BlockType.SCENE_BREAK
             ):
                 continue
             blocks.append(block)
 
-        while blocks and blocks[0].type == BlockType.SCENE_BREAK and not blocks[0].text:
+        while blocks and blocks[0].type == BlockType.SCENE_BREAK:
             blocks.pop(0)
-        while (
-            blocks and blocks[-1].type == BlockType.SCENE_BREAK and not blocks[-1].text
-        ):
+        while blocks and blocks[-1].type == BlockType.SCENE_BREAK:
             blocks.pop()
 
         return ParsedEpisode(
@@ -89,10 +104,9 @@ class EpisodeParser:
 
         if SCENE_BREAK_RE.match(cleaned):
             is_pure_whitespace = not cleaned.strip()
-            return Block(
-                type=BlockType.SCENE_BREAK,
-                text="" if is_pure_whitespace else cleaned.strip(),
-            )
+            if is_pure_whitespace:
+                return Block(type=BlockType.SCENE_BREAK)
+            return Block(type=BlockType.SPECIAL_BREAK, text=cleaned.strip())
 
         return Block(type=BlockType.PARAGRAPH, text=cleaned)
 
