@@ -15,6 +15,7 @@ from scrapers import (
     HamelnScraper,
     KakuyomuScraper,
     NaroScraper,
+    NupScraper,
     TocEntry,
     WorkImage,
 )
@@ -47,6 +48,7 @@ SCRAPERS_SITE = {
     "syosetu": NaroScraper,
     "hameln": HamelnScraper,
     "akatsuki": AkatsukiScraper,
+    "novelup": NupScraper,
 }
 
 
