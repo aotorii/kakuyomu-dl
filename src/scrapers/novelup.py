@@ -4,8 +4,8 @@ import re
 import requests
 from bs4 import Tag
 
-from scrapers import BaseScraper, Episode, TocEntry
-from utils import EPOCH, parse_date, parse_status
+from scrapers import BaseScraper, Episode, RawParagraph, TocEntry, WorkImage
+from utils import EPOCH, parse_date, parse_redirect, parse_status
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,8 @@ EP_URL = "{work_url}" + "/{episode_id}"
 
 CHAPTER_TITLE_SELECTOR = "div.episode_chapter"
 EPISODE_TITLE_SELECTOR = "div.episode_title"
-EPISODE_BODY_SELECTOR = "p#episode_content"
+
+EPISODE_BODY_SELECTORS = ["p.foreword", "p#episode_content", "p.afterword"]
 
 META_FILTER = [
     "タグ",
@@ -44,7 +45,86 @@ class NupScraper(BaseScraper):
         self.session.headers.update({"User-Agent": user_agent})
 
     def fetch_episode(self, entry: TocEntry, illus: bool = True) -> Episode:
-        return
+        logger.info(f"Fetching episode {entry.index}: {entry.title}")
+        soup = self._get_soup(entry.url)
+
+        title_tag = soup.select_one(EPISODE_TITLE_SELECTOR)
+        title = title_tag.get_text(strip=True) if title_tag else entry.title
+        chapter_tag = soup.select_one(CHAPTER_TITLE_SELECTOR)
+        category = (chapter_tag.get_text(strip=True),) if chapter_tag else ()
+
+        body_tags = soup.select(", ".join(EPISODE_BODY_SELECTORS))
+        raw_paragraphs: list[RawParagraph] = []
+
+        def _continuous_text(paragraphs: list[RawParagraph]) -> bool:
+            return (
+                paragraphs and not paragraphs[-1].is_blank and not paragraphs[-1].image
+            )
+
+        def _insert_image(tag: Tag, counter: int = 0) -> RawParagraph:
+            src = tag.get("src", "")
+            if not src:
+                raise ValueError(f"Invalid image tag: {str(tag)!r}")
+            if illus:
+                content, content_type = self.fetch_image(src)
+                return RawParagraph(
+                    text="",
+                    image=WorkImage(
+                        content=content,
+                        media_type=content_type,
+                        src=f"{entry.index}_{counter}",
+                    ),
+                )
+            return RawParagraph(
+                text=f"【挿絵{entry.index}-{counter}】", image=WorkImage(src=f"{src}")
+            )
+
+        def _parse_paragraph(tag: Tag, counter: int = 0) -> list[RawParagraph]:
+            paragraphs: list[RawParagraph] = []
+            for child in tag.children:
+                if isinstance(child, str):
+                    for i, line in enumerate(child.split("\n")):
+                        if i == 0 and _continuous_text(paragraphs):
+                            paragraphs[-1].text += line
+                        else:
+                            is_blank = not child.strip()
+                            paragraphs.append(
+                                RawParagraph(text=line, is_blank=is_blank)
+                            )
+                    continue
+                elif child.select("img"):
+                    for tag in child.select("img"):
+                        counter += 1
+                        paragraphs.append(_insert_image(tag, counter))
+                    continue
+                is_blank = not child.get_text(strip=True)
+                text = self._extract_text(child, is_blank)
+                if _continuous_text(paragraphs):
+                    paragraphs[-1].text += text
+                    continue
+                paragraphs.append(RawParagraph(text=text, is_blank=is_blank))
+            return paragraphs
+
+        if body_tags:
+            for i, tag in enumerate(body_tags):
+                counter = sum(1 for p in raw_paragraphs if p.image)
+                paragraphs = _parse_paragraph(tag, counter)
+                if i > 0 and paragraphs and paragraphs[0].is_blank:
+                    paragraphs.pop(0)
+                raw_paragraphs += paragraphs
+                if i < len(body_tags) - 1:
+                    if raw_paragraphs and raw_paragraphs[-1].is_blank:
+                        raw_paragraphs.pop()
+                    raw_paragraphs.append(RawParagraph(text="", is_hr=True))
+        else:
+            logger.warning(f"Body not found for episode {entry.episode_id}")
+        return Episode(
+            index=entry.index,
+            title=title,
+            category=category,
+            episode_id=entry.episode_id,
+            raw_paragraphs=raw_paragraphs,
+        )
 
     def fetch_image(self, url: str) -> tuple[bytes, str]:
         r = self.session.get(url, timeout=self.timeout)
@@ -102,7 +182,12 @@ class NupScraper(BaseScraper):
         last_published = last_published + "00秒" if last_published else ""
         edited = last_published
         intro_tag = data.get("intro", None)
-        introduction = intro_tag.get_text(strip=True) if intro_tag else ""
+        for br in intro_tag.find_all("br"):
+            br.replace_with("\n")
+        for a in intro_tag.find_all("a"):
+            link = a.get("href", "")
+            a.replace_with(parse_redirect(link))
+        introduction = intro_tag.get_text().strip() if intro_tag else ""
         keyword = meta.get("タグ", [])
         status_info = meta.get("完結日", "-").strip("-")
         status = 0 if not status_info else 1

@@ -61,6 +61,13 @@ class AkatsukiScraper(BaseScraper):
         body_tags = soup.select(EPISODE_BODY_SELECTOR)
         raw_paragraphs: list[RawParagraph] = []
 
+        def _continuous_text(paragraphs: list[RawParagraph], last_child: str) -> bool:
+            return (
+                paragraphs
+                and not paragraphs[-1].image
+                and last_child not in ["br", "hr"]
+            )
+
         def _insert_image(tag: Tag, counter: int = 0) -> RawParagraph:
             src = tag.get("src", "")
             if not src:
@@ -85,7 +92,7 @@ class AkatsukiScraper(BaseScraper):
             last_child: str | None = None
             for child in tag.children:
                 if isinstance(child, str):
-                    if paragraphs and last_child not in ["br", "hr"]:
+                    if _continuous_text(paragraphs, last_child):
                         paragraphs[-1].text += child
                     else:
                         is_blank = not child.strip()
@@ -99,7 +106,7 @@ class AkatsukiScraper(BaseScraper):
                     paragraphs.append(RawParagraph(text="", is_hr=True))
                 elif child.name == "a":
                     outer = str(child)
-                    if paragraphs and last_child not in ["br", "hr"]:
+                    if _continuous_text(paragraphs, last_child):
                         paragraphs[-1].text += outer
                     else:
                         paragraphs.append(RawParagraph(text=outer, is_blank=False))
@@ -113,7 +120,7 @@ class AkatsukiScraper(BaseScraper):
                 else:
                     is_blank = not child.get_text(strip=True)
                     text = self._extract_text(child, is_blank)
-                    if paragraphs and last_child not in ["br", "hr"]:
+                    if _continuous_text(paragraphs, last_child):
                         paragraphs[-1].text += text
                     else:
                         paragraphs.append(RawParagraph(text=text, is_blank=is_blank))

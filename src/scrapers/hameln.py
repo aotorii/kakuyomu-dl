@@ -73,6 +73,13 @@ class HamelnScraper(BaseScraper):
         category = (title_text[0],) if len(title_text) > 1 else entry.category
         title = title_text[-1] if title_text else entry.title
 
+        def _continuous_text(paragraphs: list[RawParagraph], last_child: str) -> bool:
+            return (
+                paragraphs
+                and not paragraphs[-1].image
+                and last_child not in ["br", "hr"]
+            )
+
         def _insert_image(tag: Tag, counter: int) -> RawParagraph:
             src = tag.get("href", "")
             if not src:
@@ -97,7 +104,7 @@ class HamelnScraper(BaseScraper):
             last_child: str | None = None
             for child in tag.children:
                 if isinstance(child, str):
-                    if paragraphs and last_child not in ["br", "hr"]:
+                    if _continuous_text(paragraphs, last_child):
                         paragraphs[-1].text += child
                     else:
                         is_blank = not child.strip()
@@ -115,14 +122,14 @@ class HamelnScraper(BaseScraper):
                         paragraphs.append(_insert_image(child, counter))
                     else:
                         outer = str(child)
-                        if paragraphs and last_child not in ["br", "hr"]:
+                        if _continuous_text(paragraphs, last_child):
                             paragraphs[-1].text += outer
                         else:
                             paragraphs.append(RawParagraph(text=outer, is_blank=False))
                 else:
                     is_blank = not child.get_text(strip=True)
                     text = self._extract_text(child, is_blank)
-                    if paragraphs and last_child not in ["br", "hr"]:
+                    if _continuous_text(paragraphs, last_child):
                         paragraphs[-1].text += text
                     else:
                         paragraphs.append(RawParagraph(text=text, is_blank=is_blank))

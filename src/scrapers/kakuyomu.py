@@ -38,10 +38,9 @@ class KakuyomuScraper(BaseScraper):
         soup = self._get_soup(entry.url)
 
         main_tags = soup.select(CHAPTER_TITLE_SELECTOR)
-        category: tuple[str, ...] | None = () if main_tags else None
+        category: tuple[str, ...] = ()
         for main_tag in main_tags:
             category += (main_tag.get_text(strip=True),)
-        category = category if category is not None else entry.category
 
         sub_tag = soup.select_one(EPISODE_TITLE_SELECTOR)
         title = sub_tag.get_text(strip=True) if sub_tag else entry.title
