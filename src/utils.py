@@ -33,7 +33,7 @@ SITE_COLORS = {
     r"novel18": {"id": "2", "color": "#db7dc4"},
     r"syosetu\.org": {"id": "3", "color": "#000000"},
     r"akatsuki": {"id": "4", "color": "#202032"},
-    r"novelup": {"id": "5", "color": "#000000"},
+    r"novelup": {"id": "5", "color": "#0cbf97"},
 }
 SITE_NAMES = {
     r"kakuyomu": "kakuyomu",

@@ -83,11 +83,11 @@ class NupScraper(BaseScraper):
             paragraphs: list[RawParagraph] = []
             for child in tag.children:
                 if isinstance(child, str):
-                    for i, line in enumerate(child.split("\n")):
-                        if i == 0 and _continuous_text(paragraphs):
+                    for i, line in enumerate(child.splitlines()):
+                        is_blank = not line.strip()
+                        if i == 0 and _continuous_text(paragraphs) and not is_blank:
                             paragraphs[-1].text += line
                         else:
-                            is_blank = not child.strip()
                             paragraphs.append(
                                 RawParagraph(text=line, is_blank=is_blank)
                             )
@@ -96,6 +96,13 @@ class NupScraper(BaseScraper):
                     for tag in child.select("img"):
                         counter += 1
                         paragraphs.append(_insert_image(tag, counter))
+                    continue
+                elif child.name == "a":
+                    outer = str(child)
+                    if _continuous_text(paragraphs):
+                        paragraphs[-1].text += outer
+                    else:
+                        paragraphs.append(RawParagraph(text=outer, is_blank=False))
                     continue
                 is_blank = not child.get_text(strip=True)
                 text = self._extract_text(child, is_blank)
@@ -187,10 +194,14 @@ class NupScraper(BaseScraper):
         for a in intro_tag.find_all("a"):
             link = a.get("href", "")
             a.replace_with(parse_redirect(link))
-        introduction = intro_tag.get_text().strip() if intro_tag else ""
+        introduction = (
+            intro_tag.get_text().strip().replace("\r\n", "\n").replace("\r", "\n")
+            if intro_tag
+            else ""
+        )
         keyword = meta.get("タグ", [])
         status_info = meta.get("完結日", "-").strip("-")
-        status = 0 if not status_info else 1
+        status = 0 if status_info else 1
         episode_count = int(meta.get("総エピソード数", "").strip().rstrip("話") or 0)
         char_count = int(
             meta.get("文字数", "").strip().rstrip("文字").replace(",", "") or 0
