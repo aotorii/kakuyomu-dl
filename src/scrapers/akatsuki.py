@@ -123,8 +123,14 @@ class AkatsukiScraper(BaseScraper):
         if body_tags:
             for i, tag in enumerate(body_tags):
                 counter = sum(1 for p in raw_paragraphs if p.image)
-                raw_paragraphs += _parse_paragraph(tag, counter)
+                paragraphs = _parse_paragraph(tag, counter)
+                # Remove abundant blank lines
+                if i > 0 and paragraphs and paragraphs[0].is_blank:
+                    paragraphs.pop(0)
+                raw_paragraphs += paragraphs
                 if i < len(body_tags) - 1:
+                    if raw_paragraphs and raw_paragraphs[-1].is_blank:
+                        raw_paragraphs.pop()
                     raw_paragraphs.append(RawParagraph(text="", is_hr=True))
         else:
             logger.warning(f"Body not found for episode {entry.episode_id}")
