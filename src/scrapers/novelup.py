@@ -249,7 +249,7 @@ class NupScraper(BaseScraper):
             data_tag = tag.select_one("td")
             label = label_tag.get_text(strip=True)
             if label.startswith("タグ"):
-                value = data_tag.get_text(separator=" ", strip=True)
+                value = list(data_tag.stripped_strings)
                 meta[label] = value
                 continue
             if label in META_FILTER:
