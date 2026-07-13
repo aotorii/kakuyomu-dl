@@ -241,8 +241,10 @@ def print_meta(meta: WorkMeta) -> None:
 def print_bookmarks(bookmarks: list[dict]) -> None:
     header = ("#", "Title", "Author", "ID", "Status")
     data = []
+    title_width = 27
+    title_author_width = 35
 
-    def chop_title(text: str, width: int = 35) -> str:
+    def chop_str(text: str, width: int) -> str:
         if len(text) > width:
             return text[:width] + "…"
         return text
@@ -250,8 +252,8 @@ def print_bookmarks(bookmarks: list[dict]) -> None:
     for i, series in enumerate(bookmarks):
         data.append((
             f"{i + 1:02d}",
-            chop_title(series["title"]),
-            series["author"],
+            chop_str(series["title"], title_width),
+            chop_str(series["author"], title_author_width - title_width),
             series["series_id"],
             series["status"],
         ))

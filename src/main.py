@@ -156,6 +156,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         writer.painter(visual)
 
     old_apollo = cache.load(site, series_id)
+    result = None
     if old_apollo:
         result = cache.diff(old_apollo, apollo, series_id)
         if result.has_new_unlocked:
@@ -200,10 +201,10 @@ def cmd_fetch(args: argparse.Namespace) -> None:
             else [index for index in entries_indices if index not in written_indices]
         )
 
+    paths = []
     if indices == []:
         print("Done. All xhtml files already exist.")
     else:
-        paths = []
         for batch in batched(entries, config.batch_size):
             raw_episodes = scraper.fetch_episodes(
                 batch, indices=indices, illus=config.illustration
@@ -220,19 +221,23 @@ def cmd_fetch(args: argparse.Namespace) -> None:
             f"{parse_plural('file', len(paths))} written to '{out_dir}'."
             if len(paths)
             else "0 files written."
+            # which is shown when and only when all the target eps are locked (oops!)
         )
         print(f"Done. {exist}{written}")
 
     if config.build_epub:
-        print("Building EPUB…")
-        builder = EpubBuilder(
-            series_id=series_id,
-            xhtml_dir=out_dir,
-            out_dir=config.epub_out_dir,
-            clean_title=config.clean_title,
-        )
-        builder.build(meta, entries)
-        print(f"Done. EPUB written to: {config.epub_out_dir}")
+        if result and not result.meta_updated and not paths:
+            print("Nothing new fetched. Skipped building EPUB. Use 'epub' instead.")
+        else:
+            print("Building EPUB…")
+            builder = EpubBuilder(
+                series_id=series_id,
+                xhtml_dir=out_dir,
+                out_dir=config.epub_out_dir,
+                clean_title=config.clean_title,
+            )
+            builder.build(meta, entries)
+            print(f"Done. EPUB written to: {config.epub_out_dir}")
 
 
 def cmd_epub(args: argparse.Namespace) -> None:
@@ -347,7 +352,9 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
 
     if args.update:
         config = bookmark_config_init(BookmarkUpdateConfig())
-        if config.skip_completed:
+        if config.skip_completed and any(
+            series["status"] == "Completed" for series in bookmarks
+        ):
             print(
                 "Will skip completed series. Use 'check' to check if there is any update for them. You can edit the config file to change the setting."
             )
@@ -369,6 +376,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
                 epub_out_dir=config.epub_dir,
                 epub_clean=config.clean_title,
                 no_illus=not config.illustration,
+                batch_size=20,
             )
             cmd_fetch(fetch_args)
         return
