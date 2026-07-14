@@ -145,6 +145,7 @@ class NupScraper(BaseScraper):
         title_tag = soup.select_one("h1.storyTitle")
         author_tag = soup.select_one("a.authorName")
         intro_tag = soup.select_one("div.novel_synopsis")
+        cover_tag = soup.select_one("div.novel_cover img")
         final_tag = soup.select_one('a[data-label="最後のページへ"]')
         final, eplist = 1, []
         if final_tag:
@@ -162,6 +163,7 @@ class NupScraper(BaseScraper):
             "author": author_tag,
             "intro": intro_tag,
             "eplist": eplist,
+            "cover": cover_tag,
         })
         return data
 
@@ -199,6 +201,8 @@ class NupScraper(BaseScraper):
             if intro_tag
             else ""
         )
+        cover_tag = data.get("cover", None)
+        alter_cover = cover_tag.get("src", "").strip() if cover_tag else ""
         keyword = meta.get("タグ", [])
         status_info = meta.get("完結日", "-").strip("-")
         status = 0 if status_info else 1
@@ -218,6 +222,7 @@ class NupScraper(BaseScraper):
             "__typename": "Work",
             "id": series_id,
             "title": title.strip(),
+            "adminCoverImageUrl": alter_cover if alter_cover else None,
             "adminSquareImageUrl": None,
             "author": {"__ref": f"UserAccount:{user_id}"},
             "publishedAt": parse_date(published) or EPOCH,

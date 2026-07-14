@@ -25,6 +25,7 @@ from utils import (
     better_view,
     display_title,
     get_base,
+    image_path,
     parse_episode_selection,
     parse_id_and_site,
     parse_plural,
@@ -62,7 +63,7 @@ def print_toc(entries: list[TocEntry]) -> None:
     last_category = object()
     locked_count, chapter = 0, []
 
-    def tuple_suffix(now: tuple, last) -> tuple[tuple, int]:
+    def _tuple_suffix(now: tuple, last) -> tuple[tuple, int]:
         if not isinstance(last, tuple):
             return now, 0
         n = min(len(now), len(last))
@@ -77,7 +78,7 @@ def print_toc(entries: list[TocEntry]) -> None:
         if episode.locked:
             locked_count += 1
         if episode.category != last_category:
-            category, level = tuple_suffix(episode.category, last_category)
+            category, level = _tuple_suffix(episode.category, last_category)
             last_category = episode.category
             if chapter:
                 indices = [x for x, _, _ in chapter]
@@ -154,6 +155,11 @@ def cmd_fetch(args: argparse.Namespace) -> None:
         content, content_type = scraper.fetch_image(meta.key_visual)
         visual = WorkImage(content=content, media_type=content_type, src="visual")
         writer.painter(visual)
+
+    if meta.alter_cover:
+        content, content_type = scraper.fetch_image(meta.alter_cover)
+        cover = WorkImage(content=content, media_type=content_type, src="alter_cover")
+        writer.painter(cover)
 
     old_apollo = cache.load(site, series_id)
     result = None
@@ -247,6 +253,7 @@ def cmd_epub(args: argparse.Namespace) -> None:
     config = epub_config_init(EpubConfig(), args)
     xhtml_dir = config.xhtml_dir / site / series_id
     filename = args.filename or None
+    cover = args.cover.read_bytes() if args.cover else None
 
     print("Fetching work metadata and table of contents…")
     if not apollo:
@@ -268,6 +275,7 @@ def cmd_epub(args: argparse.Namespace) -> None:
         series_id=series_id,
         xhtml_dir=xhtml_dir,
         out_dir=config.out_dir,
+        cover=cover,
         filename=filename,
         clean_title=config.clean_title,
     )
@@ -487,6 +495,13 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         metavar="NAME",
         help="override the output filename",
+    )
+    epub_p.add_argument(
+        "--cover",
+        type=image_path,
+        default=None,
+        metavar="PATH",
+        help="set a cover for the epub",
     )
     epub_p.add_argument(
         "--clean",

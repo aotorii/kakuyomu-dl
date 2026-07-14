@@ -211,6 +211,7 @@ class NaroScraper(BaseScraper):
             "__typename": "Work",
             "id": ncode,
             "title": title.strip(),
+            "adminCoverImageUrl": None,
             "adminSquareImageUrl": None,
             "author": {"__ref": f"UserAccount:{user_id}"},
             "publishedAt": parse_date(published) or EPOCH,

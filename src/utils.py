@@ -56,6 +56,8 @@ SITE_BASE = {
     "novelup": "novelup.plus/story/",
 }
 
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -85,6 +87,7 @@ class WorkMeta:
     last_episode: str
     last_edited: str
     key_visual: str | None = None
+    alter_cover: str | None = None
 
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:
@@ -214,13 +217,20 @@ def display_date(time: str) -> str:
     return f"{dt:%Y-%m-%d}"
 
 
+def chop_str(text: str, width: int) -> str:
+    if len(text) > width:
+        return text[:width] + "…"
+    return text
+
+
 def display_title(title: str) -> str:
+    title = chop_str(title, 40)
     space = 100 - display_width(title)
-    if space <= 0:
+    if space < 0:
         return title
     left = space // 2
     right = space - left
-    return "-" * left + title + "-" * right
+    return "─" * left + title + "─" * right
 
 
 def print_meta(meta: WorkMeta) -> None:
@@ -243,11 +253,6 @@ def print_bookmarks(bookmarks: list[dict]) -> None:
     data = []
     title_width = 27
     title_author_width = 35
-
-    def chop_str(text: str, width: int) -> str:
-        if len(text) > width:
-            return text[:width] + "…"
-        return text
 
     for i, series in enumerate(bookmarks):
         data.append((
@@ -329,6 +334,18 @@ def positive_int(value) -> int:
     if value <= 0:
         raise argparse.ArgumentTypeError("must be greater than 0")
     return value
+
+
+def image_path(value) -> Path:
+    path = Path(value)
+    if not path.is_file():
+        raise argparse.ArgumentTypeError(f"Cover file does not exist: {value}")
+    if path.suffix.lower() not in IMAGE_EXTENSIONS:
+        raise argparse.ArgumentTypeError(
+            f"Unsupported cover format: {path.suffix}. "
+            f"Supported formats: {', '.join(IMAGE_EXTENSIONS)}"
+        )
+    return path
 
 
 def better_view(data: list[tuple[str, str]]) -> str:

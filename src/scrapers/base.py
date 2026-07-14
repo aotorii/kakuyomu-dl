@@ -45,6 +45,7 @@ class WorkMeta:
     last_episode: str
     last_edited: str
     key_visual: str | None = None
+    alter_cover: str | None = None
 
 
 @dataclass
@@ -170,6 +171,7 @@ class BaseScraper(ABC):
         last_episode = work_node.get("lastEpisodePublishedAt", "")
         last_edited = work_node.get("editedAt", "")
         key_visual = work_node.get("adminSquareImageUrl", None)
+        alter_cover = work_node.get("adminCoverImageUrl", None)
 
         return WorkMeta(
             series_id=series_id,
@@ -184,6 +186,7 @@ class BaseScraper(ABC):
             last_episode=last_episode,
             last_edited=last_edited,
             key_visual=key_visual,
+            alter_cover=alter_cover,
         )
 
     def parse_toc(self, apollo: dict, series_id: str) -> list[TocEntry]:

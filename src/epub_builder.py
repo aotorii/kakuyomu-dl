@@ -159,12 +159,14 @@ class EpubBuilder:
         xhtml_dir: str | Path = OUT_DIR / "{series_id}",
         out_dir: str | Path = EPUB_DIR,
         filename: str | None = None,
+        cover: bytes | None = None,
         clean_title: bool = False,
         language: str = "ja",
     ):
         self.xhtml_dir = Path(str(xhtml_dir).format(series_id=series_id))
         self.out_dir = Path(str(out_dir))
         self.filename = filename
+        self.cover = cover
         self.clean = clean_title
         self.language = language
 
@@ -173,6 +175,7 @@ class EpubBuilder:
         xhtml_dir = self.xhtml_dir / "xhtml"
         image_dir = self.xhtml_dir / "image"
         visual_path = next(image_dir.glob("visual.*"), None)
+        cover_path = next(image_dir.glob("alter_cover.*"), None)
 
         book = epub.EpubBook()
         title = clean_title(meta.title, self.clean)
@@ -183,11 +186,16 @@ class EpubBuilder:
         book.set_language(self.language)
         book.add_author(meta.author)
 
+        set_cover = process_image(self.cover, 1400, 2000) if self.cover else None
         key_visual_bytes = visual_path.read_bytes() if visual_path else None
-        cover = generate_cover(
-            strip_emoji(title), strip_emoji(meta.author), site, key_visual_bytes
-        )
-        book.set_cover("image/cover.jpg", cover)
+        alter_cover = cover_path.read_bytes() if cover_path else None
+        if alter_cover:
+            cover = process_image(alter_cover, 1400, 2000)
+        else:
+            cover = generate_cover(
+                strip_emoji(title), strip_emoji(meta.author), site, key_visual_bytes
+            )
+        book.set_cover("image/cover.jpg", set_cover or cover)
 
         if meta.description:
             book.add_metadata("DC", "description", meta.description)
