@@ -73,7 +73,7 @@ options:
 ```
 
 ```
-usage: kakuyomu-dl epub [-h] [--xhtml-dir DIR] [--out-dir DIR] [--filename NAME] [--clean] series
+usage: kakuyomu-dl epub [-h] [--xhtml-dir DIR] [--out-dir DIR] [--filename NAME] [--cover PATH] [--clean] series
 
 positional arguments:
   series           series ID or full web url
@@ -83,17 +83,18 @@ options:
   --xhtml-dir DIR  directory containing the episode files
   --out-dir DIR    where to write the epub file
   --filename NAME  override the output filename
+  --cover PATH     set a cover for the epub (1400x2000px for the best)
   --clean          remove possible sale promotion in the novel title
 ```
 
 ```
-usage: kakuyomu-dl bookmark [-h] [--check | --update | --delete SERIES [SERIES ...] | --add SERIES [SERIES ...]]
+usage: kakuyomu-dl bookmark [-h] [--check | --update | --delete INDEX [INDEX ...] | --add SERIES [SERIES ...]]
 
 options:
   -h, --help            show this help message and exit
   --check               check update for all the series on the bookmark list
   --update              update all the series on the bookmark list
-  --delete SERIES [SERIES ...]
+  --delete INDEX [INDEX ...]
                         delete series from your bookmark list
   --add SERIES [SERIES ...]
                         add series to your bookmark list

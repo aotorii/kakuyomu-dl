@@ -501,7 +501,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=image_path,
         default=None,
         metavar="PATH",
-        help="set a cover for the epub",
+        help="set a cover for the epub (1400x2000px for the best)",
     )
     epub_p.add_argument(
         "--clean",
