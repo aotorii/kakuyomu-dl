@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 
 import requests
 from bs4 import Tag
@@ -153,6 +154,8 @@ class NupScraper(BaseScraper):
             match = re.search(r"\?p=(\d+)", href)
             final = int(match.group(1)) if match else final
         for i in range(1, final + 1):
+            if i > 1:
+                time.sleep(self.delay)
             toc_url = url + f"?p={i}"
             soup = self._get_soup(toc_url)
             eplist.append(soup.select_one("div.episodeList"))

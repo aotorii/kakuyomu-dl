@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 
 import requests
 from bs4 import Tag
@@ -163,6 +164,7 @@ class AkatsukiScraper(BaseScraper):
         soup = self._get_soup(url)
         title_tag = soup.select_one("a#LookNovel")
         author_tag = title_tag.find_next("h3").select_one("a")
+        visual_tag = soup.select_one("div.font-bb center img")
         final_tag = soup.select_one("span.table_of_contents a")
         final, eplist = 1, []
         if final_tag:
@@ -170,6 +172,8 @@ class AkatsukiScraper(BaseScraper):
             match = re.search(r"/page~(\d+)/", href)
             final = int(match.group(1)) if match else final
         for i in range(1, final + 1):
+            if i > 1:
+                time.sleep(self.delay)
             toc_url = url + f"/page~{i}"
             soup = self._get_soup(toc_url)
             eplist.append(soup.select_one("table.list"))
@@ -178,6 +182,7 @@ class AkatsukiScraper(BaseScraper):
             "meta": meta,
             "title": title_tag,
             "author": author_tag,
+            "visual": visual_tag,
             "eplist": eplist,
         })
         return data
@@ -202,6 +207,9 @@ class AkatsukiScraper(BaseScraper):
         href = title_tag.get("href", "").strip() if title_tag else ""
         series_id = href.strip("/").split("/")[-1] if href else series_id
         title = title_tag.get_text(strip=True) if title_tag else f"Work {series_id}"
+        visual_tag = data.get("visual", None)
+        href = visual_tag.get("src", "").strip() if visual_tag else ""
+        visual = "https:" + href if href else None
         url = self._get_url(series_id)
         published = meta.get("掲載日", "").strip()
         published = published + " 00秒" if published else ""
@@ -231,7 +239,7 @@ class AkatsukiScraper(BaseScraper):
             "id": series_id,
             "title": title.strip(),
             "adminCoverImageUrl": None,
-            "adminSquareImageUrl": None,
+            "adminSquareImageUrl": visual,
             "author": {"__ref": f"UserAccount:{user_id}"},
             "publishedAt": parse_date(published) or EPOCH,
             "lastEpisodePublishedAt": parse_date(last_published) or EPOCH,
