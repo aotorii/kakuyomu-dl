@@ -118,3 +118,7 @@ For sites that are protected by cloudflare, you might have to set up the cookies
 ```
  - The current CF-infected list:
     - hameln
+
+## Issues
+ 1. About akatsuki, it is normal that it takes much more time to fetch/check an akatsuki series that is longer than **300** episodes, in which case the site will chop the whole eplist into small chunks (20 episodes per page) automatically, which is extremely concerning. In order to scrape the complete toc, the downloader needs to request at least once for each page. As a result, it takes about 1 minute to finish the toc for, for example, an 1000-episode-series with the default request delay (1s) and even longer based on your network status. As far as I know, there is no other alternative methods to obtain full eplists at the moment.
+ 2. Be polite. Use `--delay` to adjust the request delay if the server refuses your frequent requests.
