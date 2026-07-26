@@ -371,6 +371,8 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
                 series for series in bookmarks if series["status"] != "Completed"
             ]
         for i, series in enumerate(bookmarks):
+            if i > 0:
+                time.sleep(args.delay)
             title = f"#{i + 1:02d} {series['title']}"
             print(f"\n{display_title(title)}\n")
             base = get_base(series["site"], series["series_id"])
@@ -391,6 +393,8 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
 
     if args.check:
         for i, series in enumerate(bookmarks):
+            if i > 0:
+                time.sleep(args.delay)
             title = f"#{i + 1:02d} {series['title']}"
             print(f"\n{display_title(title)}\n")
             base = get_base(series["site"], series["series_id"])
