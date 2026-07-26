@@ -133,7 +133,7 @@ class NaroScraper(BaseScraper):
             return data
         eplist, next_page = [], series_id
         while next_page:
-            if eplist != series_id:
+            if next_page != series_id:
                 time.sleep(self.delay)
             url = urljoin(base_url, next_page)
             response = self.session.get(url, timeout=self.timeout)

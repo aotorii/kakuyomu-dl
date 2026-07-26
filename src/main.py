@@ -326,7 +326,9 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         bookmarks = []
 
     if args.add:
-        for series in args.add:
+        for i, series in enumerate(args.add):
+            if i > 0:
+                time.sleep(args.delay)
             series_id, site = parse_id_and_site(series)
             scraper = get_scraper(site, args.delay)
             meta = scraper.fetch_work_meta(series_id)
