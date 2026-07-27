@@ -2,7 +2,6 @@ import json
 import logging
 
 import requests
-from bs4 import BeautifulSoup
 
 from scrapers import BaseScraper, Episode, RawParagraph, TocEntry
 
@@ -67,16 +66,13 @@ class KakuyomuScraper(BaseScraper):
         )
 
     def fetch_image(self, url: str) -> tuple[bytes, str]:
-        r = self.session.get(url, timeout=self.timeout)
-        r.raise_for_status()
+        r = self._get_response(url)
         content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
         return r.content, content_type
 
     # Extract the __NEXT_DATA__ JSON blob
     def _fetch_next_data(self, url: str) -> dict:
-        response = self.session.get(url, timeout=self.timeout)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "lxml")
+        soup = self._get_soup(url)
         tag = soup.find("script", id="__NEXT_DATA__")
         if not tag:
             raise RuntimeError(

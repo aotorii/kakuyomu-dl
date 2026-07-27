@@ -226,3 +226,4 @@ out/
 # Config
 bookmarks.json
 cf_cookies.json
+logs/

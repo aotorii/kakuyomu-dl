@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
 
+import requests
 from bs4 import BeautifulSoup, Tag
 
 from utils import parse_plural
@@ -63,6 +64,10 @@ class Episode:
     category: tuple[str, ...]
     episode_id: str
     raw_paragraphs: list[RawParagraph] = field(default_factory=list)
+
+
+class FetchError(Exception):
+    """Raised when a page fails to fetch."""
 
 
 class BaseScraper(ABC):
@@ -256,10 +261,31 @@ class BaseScraper(ABC):
                 index += 1
         return entries
 
-    def _get_soup(self, url: str) -> BeautifulSoup:
-        response = self.session.get(url, timeout=self.timeout)
-        response.raise_for_status()
+    def _get_response(self, url: str, **kwargs) -> requests.Response:
+        try:
+            response = self.session.get(url, timeout=self.timeout, **kwargs)
+            response.raise_for_status()
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Timeout fetching {url}: {e}")
+            raise FetchError(f"Timed out fetching {url}") from e
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error fetching {url}: {e}")
+            raise FetchError(f"Connection failed for {url}") from e
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP error fetching {url}: {e}")
+            raise FetchError(f"HTTP {response.status_code} for {url}") from e
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed for {url}: {e}")
+            raise FetchError(f"Request failed for {url}") from e
+        return response
+
+    def _get_soup(self, url: str, **kwargs) -> BeautifulSoup:
+        response = self._get_response(url, **kwargs)
         return BeautifulSoup(response.text, "lxml")
+
+    def _get_json(self, url: str, **kwargs) -> dict:
+        response = self._get_response(url, **kwargs)
+        return response.json()
 
     def _extract_text(self, tag: Tag, is_blank: bool = False) -> str:
         if is_blank:

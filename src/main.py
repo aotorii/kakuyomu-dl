@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 import time
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import cache
@@ -12,6 +13,7 @@ from parser import EpisodeParser
 from scrapers import (
     AkatsukiScraper,
     BaseScraper,
+    FetchError,
     HamelnScraper,
     KakuyomuScraper,
     NaroScraper,
@@ -21,6 +23,7 @@ from scrapers import (
 )
 from utils import (
     CONFIG_DIR,
+    LOG_DIR,
     batched,
     better_view,
     display_title,
@@ -36,12 +39,38 @@ from utils import (
 )
 from writer import XhtmlWriter
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S",
-)
 logger = logging.getLogger(__name__)
+
+
+def setup_logging() -> None:
+    class NoExceptionFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            return record.exc_info is None
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    console = logging.StreamHandler(sys.stdout)
+    console.setLevel(logging.INFO)
+    console.addFilter(NoExceptionFilter())
+    console.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+    )
+
+    file_handler = RotatingFileHandler(
+        LOG_DIR / "kakuyomu-dl.log",
+        maxBytes=5 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+    root.addHandler(console)
+    root.addHandler(file_handler)
 
 
 SCRAPERS_SITE = {
@@ -566,9 +595,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    setup_logging()
     parser = build_parser()
     args = parser.parse_args()
-    args.func(args)
+    try:
+        args.func(args)
+    except FetchError as e:
+        print(f"[error] {e}, check logs for more info.", file=sys.stderr)
+        logger.exception(f"Fetch failed: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nInterrupted.", file=sys.stderr)
+        sys.exit(130)
+    except Exception as e:
+        print(
+            f"[error] Unexpected error: {e}, check logs for more info.", file=sys.stderr
+        )
+        logger.exception(f"Unhandled exception: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

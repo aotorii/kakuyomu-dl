@@ -65,10 +65,10 @@ ASSETS_DIR = ROOT / "assets"
 OUT_DIR = ROOT / "out"
 CONFIG_DIR = ROOT / "config"
 EPUB_DIR = OUT_DIR / "epub"
+LOG_DIR = CONFIG_DIR / "logs"
 
-OUT_DIR.mkdir(exist_ok=True)
-EPUB_DIR.mkdir(exist_ok=True)
-CONFIG_DIR.mkdir(exist_ok=True)
+EPUB_DIR.mkdir(parents=True, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 COOKIES = CONFIG_DIR / "cf_cookies.json"
 

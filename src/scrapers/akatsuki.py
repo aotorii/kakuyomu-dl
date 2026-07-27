@@ -151,8 +151,7 @@ class AkatsukiScraper(BaseScraper):
         )
 
     def fetch_image(self, url: str) -> tuple[bytes, str]:
-        r = self.session.get(url, timeout=self.timeout)
-        r.raise_for_status()
+        r = self._get_response(url)
         content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
         return r.content, content_type
 

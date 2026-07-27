@@ -3,7 +3,7 @@ import time
 from urllib.parse import urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup, Tag
+from bs4 import Tag
 
 from scrapers import BaseScraper, Episode, RawParagraph, TocEntry, WorkImage
 from utils import EPOCH, MITE_RE, parse_date, parse_series_id, parse_status
@@ -104,8 +104,7 @@ class NaroScraper(BaseScraper):
         )
 
     def fetch_image(self, url: str) -> tuple[bytes, str]:
-        r = self.session.get(url, timeout=self.timeout)
-        r.raise_for_status()
+        r = self._get_response(url)
         content_type = r.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
         return r.content, content_type
 
@@ -116,14 +115,11 @@ class NaroScraper(BaseScraper):
         meta_url, isr18 = META_URL.format(api="novelapi", work_id=series_id), 0
         if "novel18" in url:
             meta_url, isr18 = META_URL.format(api="novel18api", work_id=series_id), 1
-        response = self.session.get(meta_url, timeout=self.timeout)
-        response.raise_for_status()
-        data = response.json()[1]
+        json = self._get_json(meta_url)
+        data = json[1]
         data["isr18"] = isr18
         if isr18:
-            response = self.session.get(url, timeout=self.timeout)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "lxml")
+            soup = self._get_soup(url)
             tag = soup.select_one("div.p-novel__author a")
             author_page = tag.get("href", "") if tag else ""
             parsed = urlparse(author_page)
@@ -136,9 +132,7 @@ class NaroScraper(BaseScraper):
             if next_page != series_id:
                 time.sleep(self.delay)
             url = urljoin(base_url, next_page)
-            response = self.session.get(url, timeout=self.timeout)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "lxml")
+            soup = self._get_soup(url)
             eplist.extend(
                 soup.select("div.p-eplist__sublist, div.p-eplist__chapter-title")
             )
@@ -149,9 +143,8 @@ class NaroScraper(BaseScraper):
 
     def _get_url(self, series_id: str) -> str:
         url = WORK_URL.format(novel="ncode", work_id=series_id)
-        response = self.session.get(url, timeout=self.timeout)
-        response.raise_for_status()
-        if "novel18" in response.url:
+        r = self._get_response(url)
+        if "novel18" in r.url:
             url = WORK_URL.format(novel="novel18", work_id=series_id)
         return url
 
