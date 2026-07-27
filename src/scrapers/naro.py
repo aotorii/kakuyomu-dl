@@ -5,7 +5,8 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import Tag
 
-from scrapers import BaseScraper, Episode, RawParagraph, TocEntry, WorkImage
+from models import Episode, RawParagraph, TocEntry, WorkImage
+from scrapers import BaseScraper
 from utils import EPOCH, MITE_RE, parse_date, parse_series_id, parse_status
 
 logger = logging.getLogger(__name__)

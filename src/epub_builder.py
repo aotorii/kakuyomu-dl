@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ebooklib import epub
 
-from scrapers import TocEntry, WorkMeta
+from models import TocEntry, WorkMeta
 from utils import (
     EPUB_DIR,
     OUT_DIR,

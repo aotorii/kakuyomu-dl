@@ -2,8 +2,7 @@ import logging
 from pathlib import Path
 from string import Template
 
-from parser import BlockType, ParsedEpisode
-from scrapers import WorkImage
+from models import BlockType, ParsedEpisode, WorkImage
 from utils import OUT_DIR, escape
 
 logger = logging.getLogger(__name__)

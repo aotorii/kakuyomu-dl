@@ -1,38 +1,7 @@
 import re
-from dataclasses import dataclass, field
-from enum import Enum, auto
 
-from scrapers import Episode, RawParagraph, WorkImage
+from models import Block, BlockType, Episode, ParsedEpisode, RawParagraph
 from utils import SCENE_BREAK_RE
-
-
-class BlockType(Enum):
-    PARAGRAPH = auto()
-    IMAGE = auto()
-    LINK = auto()
-    SCENE_BREAK = auto()
-    SPECIAL_BREAK = auto()
-    THEMATIC_BREAK = auto()
-
-
-@dataclass
-class Block:
-    type: BlockType
-    text: str = ""
-    image: WorkImage | None = None
-
-
-@dataclass
-class ParsedEpisode:
-    index: int
-    episode_id: str
-    title: str
-    category: tuple[str, ...]
-    blocks: list[Block] = field(default_factory=list)
-
-    @property
-    def paragraphs(self) -> list[str]:
-        return [b.text for b in self.blocks if b.type == BlockType.PARAGRAPH]
 
 
 class EpisodeParser:

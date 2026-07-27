@@ -2,68 +2,15 @@ import copy
 import logging
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup, Tag
 
+from models import Episode, TocEntry, WorkMeta
 from utils import parse_plural
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TocEntry:
-    index: int
-    title: str
-    url: str
-    episode_id: str
-    category: tuple[str, ...] = ()
-    published_on: str = ""
-    locked: bool = False
-    meta: dict = field(default_factory=dict)
-
-
-@dataclass
-class WorkImage:
-    src: str
-    content: bytes | None = None
-    media_type: str | None = None
-
-
-@dataclass
-class WorkMeta:
-    series_id: str
-    title: str
-    author: str
-    description: str
-    work_url: str
-    status: int
-    character_count: int
-    episode_count: int
-    published: str
-    last_episode: str
-    last_edited: str
-    key_visual: str | None = None
-    alter_cover: str | None = None
-
-
-@dataclass
-class RawParagraph:
-    text: str
-    image: WorkImage | None = None
-    is_blank: bool = False
-    is_hr: bool = False
-
-
-@dataclass
-class Episode:
-    index: int
-    title: str
-    category: tuple[str, ...]
-    episode_id: str
-    raw_paragraphs: list[RawParagraph] = field(default_factory=list)
 
 
 class FetchError(Exception):

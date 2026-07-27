@@ -1,26 +1,14 @@
 import json
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from config import OUT_DIR
+from models import UpdateResult
 
 logger = logging.getLogger(__name__)
 
 CACHE_FILENAME = "toc_cache.json"
-
-
-@dataclass
-class UpdateResult:
-    has_update: bool
-    has_new_unlocked: bool
-    new_episode_ids: list[str]
-    new_episode_titles: list[str]
-    old_count: int
-    new_count: int
-    new_unlocked: list[str]
-    meta_updated: bool
 
 
 def cache_path(site: str, series_id: str, base_dir: str | Path = OUT_DIR) -> Path:

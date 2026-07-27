@@ -9,6 +9,7 @@ from pathlib import Path
 import cache
 from config import BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
+from models import TocEntry, WorkImage
 from parser import EpisodeParser
 from scrapers import (
     AkatsukiScraper,
@@ -18,8 +19,6 @@ from scrapers import (
     KakuyomuScraper,
     NaroScraper,
     NupScraper,
-    TocEntry,
-    WorkImage,
 )
 from utils import (
     CONFIG_DIR,

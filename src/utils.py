@@ -5,7 +5,6 @@ import re
 import sys
 import textwrap
 import unicodedata
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from itertools import islice
 from pathlib import Path
@@ -14,6 +13,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 import emoji
 import inflect
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+from models import WorkMeta
 
 PROMO_RE = re.compile(
     r"【[^】]*(発売|書籍化|アニメ|連載|コミカライズ|コミック|続刊|完結|受賞|大賞|金賞|重版|更新|追加|シリーズ化|PV|達成|開始)[^】]*】",
@@ -71,23 +72,6 @@ EPUB_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 COOKIES = CONFIG_DIR / "cf_cookies.json"
-
-
-@dataclass
-class WorkMeta:
-    series_id: str
-    title: str
-    author: str
-    description: str
-    work_url: str
-    status: int
-    character_count: int
-    episode_count: int
-    published: str
-    last_episode: str
-    last_edited: str
-    key_visual: str | None = None
-    alter_cover: str | None = None
 
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:
