@@ -3,7 +3,8 @@ from pathlib import Path
 from string import Template
 
 from models import BlockType, ParsedEpisode, WorkImage
-from utils import OUT_DIR, escape
+from paths import OUT_DIR
+from utils import escape
 
 logger = logging.getLogger(__name__)
 

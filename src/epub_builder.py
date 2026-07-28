@@ -6,9 +6,8 @@ from pathlib import Path
 from ebooklib import epub
 
 from models import TocEntry, WorkMeta
+from paths import EPUB_DIR, OUT_DIR
 from utils import (
-    EPUB_DIR,
-    OUT_DIR,
     SITE_COLORS,
     clean_title,
     generate_colophon,

@@ -15,6 +15,7 @@ import inflect
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from models import WorkMeta
+from paths import ASSETS_DIR, COOKIES
 
 PROMO_RE = re.compile(
     r"【[^】]*(発売|書籍化|アニメ|連載|コミカライズ|コミック|続刊|完結|受賞|大賞|金賞|重版|更新|追加|シリーズ化|PV|達成|開始)[^】]*】",
@@ -58,20 +59,6 @@ SITE_BASE = {
 }
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-
-
-ROOT = Path(__file__).resolve().parent.parent
-
-ASSETS_DIR = ROOT / "assets"
-OUT_DIR = ROOT / "out"
-CONFIG_DIR = ROOT / "config"
-EPUB_DIR = OUT_DIR / "epub"
-LOG_DIR = CONFIG_DIR / "logs"
-
-EPUB_DIR.mkdir(parents=True, exist_ok=True)
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-COOKIES = CONFIG_DIR / "cf_cookies.json"
 
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:
@@ -307,17 +294,6 @@ def batched(iterable, n: int):
     it = iter(iterable)
     while batch := tuple(islice(it, n)):
         yield batch
-
-
-def positive_int(value) -> int:
-    try:
-        value = int(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"Invalid integer value: '{value}'")
-
-    if value <= 0:
-        raise argparse.ArgumentTypeError("must be greater than 0")
-    return value
 
 
 def image_path(value) -> Path:

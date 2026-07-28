@@ -7,22 +7,20 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import cache
-from config import BookmarkUpdateConfig, EpubConfig, FetchConfig
 from epub_builder import EpubBuilder
-from models import TocEntry, WorkImage
+from errors import ConfigError, FetchError
+from models import BookmarkUpdateConfig, EpubConfig, FetchConfig, TocEntry, WorkImage
 from parser import EpisodeParser
+from paths import CONFIG_DIR, LOG_DIR
 from scrapers import (
     AkatsukiScraper,
     BaseScraper,
-    FetchError,
     HamelnScraper,
     KakuyomuScraper,
     NaroScraper,
     NupScraper,
 )
 from utils import (
-    CONFIG_DIR,
-    LOG_DIR,
     batched,
     better_view,
     display_title,
@@ -32,10 +30,10 @@ from utils import (
     parse_id_and_site,
     parse_plural,
     parse_status,
-    positive_int,
     print_bookmarks,
     print_meta,
 )
+from validators import argparse_positive_int
 from writer import XhtmlWriter
 
 logger = logging.getLogger(__name__)
@@ -131,6 +129,7 @@ def print_toc(entries: list[TocEntry]) -> None:
 
 
 def fetch_config_init(config: FetchConfig, args: argparse.Namespace) -> FetchConfig:
+    config = config.load()
     config.overwrite = not args.no_overwrite and config.overwrite
     config.build_epub = args.epub or config.build_epub
     config.clean_title = args.epub_clean or config.clean_title
@@ -142,6 +141,7 @@ def fetch_config_init(config: FetchConfig, args: argparse.Namespace) -> FetchCon
 
 
 def epub_config_init(config: EpubConfig, args: argparse.Namespace) -> EpubConfig:
+    config = config.load()
     config.xhtml_dir = Path(args.xhtml_dir or config.xhtml_dir)
     config.out_dir = Path(args.out_dir or config.out_dir)
     config.clean_title = args.clean or config.clean_title
@@ -149,6 +149,7 @@ def epub_config_init(config: EpubConfig, args: argparse.Namespace) -> EpubConfig
 
 
 def bookmark_config_init(config: BookmarkUpdateConfig) -> BookmarkUpdateConfig:
+    config = config.load()
     config.xhtml_dir = Path(config.xhtml_dir)
     config.epub_dir = Path(config.epub_dir)
     return config
@@ -500,7 +501,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     fetch_p.add_argument(
         "--batch-size",
-        type=positive_int,
+        type=argparse_positive_int,
         metavar="N",
         help="number of files processed per batch",
     )
@@ -590,7 +591,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 # def cmd_debug(args: argparse.Namespace) -> None:
-#     return
 
 
 def main() -> None:
@@ -603,6 +603,9 @@ def main() -> None:
         print(f"[error] {e}, check logs for more info.", file=sys.stderr)
         logger.exception(f"Fetch failed: {e}")
         sys.exit(1)
+    except ConfigError as e:
+        print(f"[error] Configuration error: {e}", file=sys.stderr)
+        sys.exit(2)
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
         sys.exit(130)
