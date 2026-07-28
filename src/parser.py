@@ -1,7 +1,7 @@
 import re
 
+from constants import SCENE_BREAK_RE
 from models import Block, BlockType, Episode, ParsedEpisode, RawParagraph
-from utils import SCENE_BREAK_RE
 
 
 class EpisodeParser:

@@ -4,10 +4,10 @@ from datetime import datetime
 from bs4 import Tag
 from scraper import PageSoup, Scraper, default_config
 
+from constants import EPOCH
 from models import Episode, RawParagraph, TocEntry, WorkImage
 from scrapers import BaseScraper
 from utils import (
-    EPOCH,
     load_cookies,
     parse_date,
     parse_redirect,

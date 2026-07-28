@@ -5,10 +5,10 @@ from pathlib import Path
 
 from ebooklib import epub
 
+from constants import SITE_COLORS
 from models import TocEntry, WorkMeta
 from paths import EPUB_DIR, OUT_DIR
 from utils import (
-    SITE_COLORS,
     clean_title,
     generate_colophon,
     generate_cover,
