@@ -51,10 +51,12 @@ def diff(old_state: dict, new_state: dict, series_id: str) -> UpdateResult:
     new_unlocked = [
         ep_title
         for ep_id, ep_title, is_free in new_episodes
-        if ep_id not in free_episodes and is_free
+        if (ep_id, ep_title, is_free) not in added
+        and ep_id not in free_episodes
+        and is_free
     ]
 
-    old_edited, _ = _get_edited_time(old_state, series_id)
+    old_edited, old_last_ep = _get_edited_time(old_state, series_id)
     new_edited, new_last_ep = _get_edited_time(new_state, series_id)
 
     return UpdateResult(
@@ -66,7 +68,8 @@ def diff(old_state: dict, new_state: dict, series_id: str) -> UpdateResult:
         new_count=len(new_episodes),
         new_unlocked=new_unlocked,
         meta_updated=new_edited > old_edited
-        and new_edited - new_last_ep > timedelta(minutes=1),
+        and new_edited - new_last_ep > timedelta(minutes=1)
+        and new_last_ep == old_last_ep,
     )
 
 

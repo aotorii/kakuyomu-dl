@@ -3,5 +3,5 @@ ebooklib==0.20
 emoji==2.15.0
 inflect==7.5.0
 lncrawl-scraper==0.2.4
-Pillow==10.4.0
+Pillow==12.3.0
 Requests==2.31.0
