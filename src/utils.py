@@ -354,6 +354,8 @@ def _place_visual(
 
     visual = Image.open(io.BytesIO(key_visual)).convert("RGB")
     vw, vh = visual.size
+    if vh / vw >= 1.35:
+        return
     scale = min(box_w / vw, box_h / vh)
     new_w, new_h = max(1, round(vw * scale)), max(1, round(vh * scale))
     if scale < 1 or scale > 1:

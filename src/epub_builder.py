@@ -2,6 +2,7 @@ import logging
 import re
 import uuid
 from pathlib import Path
+from string import Template
 
 from ebooklib import epub
 
@@ -150,6 +151,27 @@ div.page-break {
 }
 """
 
+VISUAL_PAGE_TEMPLATE = Template("""\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html
+ xmlns="http://www.w3.org/1999/xhtml"
+ xmlns:epub="http://www.idpf.org/2007/ops"
+ xml:lang="ja"
+>
+<head>
+<meta charset="UTF-8"/>
+<title>$title</title>
+<link rel="stylesheet" type="text/css" href="../style/style.css"/>
+</head>
+<body>
+<div class="visual-page">
+<img src="../image/visual.jpg" alt="key-visual" class="fit"/>
+</div>
+</body>
+</html>
+""")
+
 
 class EpubBuilder:
     def __init__(
@@ -276,6 +298,20 @@ class EpubBuilder:
                 )
                 book.add_item(epub_img)
 
+        visual_page = None
+        if visual_path:
+            visual_page = epub.EpubHtml(
+                uid="visual_page",
+                title="",
+                file_name="text/visual.xhtml",
+                lang=self.language,
+                content=VISUAL_PAGE_TEMPLATE.substitute(title=meta.title).encode(
+                    "utf-8"
+                ),
+            )
+            visual_page.add_item(css)
+            book.add_item(visual_page)
+
         colophon = epub.EpubHtml(
             uid="colophon",
             title="奥付",
@@ -289,7 +325,13 @@ class EpubBuilder:
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
 
-        book.spine = ["cover", "nav"] + epub_chapters + [colophon]
+        spine = ["cover"]
+        if visual_page:
+            spine.append(visual_page)
+        spine.append("nav")
+        spine.extend(epub_chapters)
+        spine.append(colophon)
+        book.spine = spine
 
         safe_title = safe_filename(title)
         out_filename = self.filename or f"{safe_title}.epub"
