@@ -7,8 +7,8 @@ from typing import Optional
 import requests
 from bs4 import BeautifulSoup, Tag
 
-from errors import FetchError
-from models import Episode, TocEntry, WorkMeta
+from common.errors import FetchError
+from common.models import Episode, TocEntry, WorkMeta
 from utils import parse_plural
 
 logger = logging.getLogger(__name__)

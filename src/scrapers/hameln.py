@@ -4,9 +4,8 @@ from datetime import datetime
 from bs4 import Tag
 from scraper import PageSoup, Scraper, default_config
 
-from constants import EPOCH
-from models import Episode, RawParagraph, TocEntry, WorkImage
-from scrapers import BaseScraper
+from common.constants import EPOCH
+from common.models import Episode, RawParagraph, TocEntry, WorkImage
 from utils import (
     load_cookies,
     parse_date,
@@ -14,6 +13,8 @@ from utils import (
     parse_series_id,
     parse_status,
 )
+
+from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
 

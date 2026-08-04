@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
-from errors import ConfigError
-from paths import CONFIG, EPUB_DIR, OUT_DIR
-from validators import positive_int
+from common.errors import ConfigError
+from common.paths import CONFIG, EPUB_DIR, OUT_DIR
+from common.validators import positive_int
 
 
 @dataclass

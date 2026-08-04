@@ -1,6 +1,6 @@
 import argparse
 
-from errors import ConfigError
+from common.errors import ConfigError
 
 
 def positive_int(value) -> int:

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 ASSETS_DIR = ROOT / "assets"
 OUT_DIR = ROOT / "out"
 CONFIG_DIR = ROOT / "config"

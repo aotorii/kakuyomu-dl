@@ -2,8 +2,8 @@ import logging
 from pathlib import Path
 from string import Template
 
-from models import BlockType, ParsedEpisode, WorkImage
-from paths import OUT_DIR
+from common.models import BlockType, ParsedEpisode, WorkImage
+from common.paths import OUT_DIR
 from utils import escape
 
 logger = logging.getLogger(__name__)

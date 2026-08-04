@@ -5,9 +5,9 @@ from pathlib import Path
 
 from ebooklib import epub
 
-from constants import SITE_COLORS
-from models import TocEntry, WorkMeta
-from paths import EPUB_DIR, OUT_DIR
+from common.constants import SITE_COLORS
+from common.models import TocEntry, WorkMeta
+from common.paths import EPUB_DIR, OUT_DIR
 from utils import (
     clean_title,
     generate_colophon,

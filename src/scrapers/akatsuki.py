@@ -5,10 +5,11 @@ import time
 import requests
 from bs4 import Tag
 
-from constants import EPOCH
-from models import Episode, RawParagraph, TocEntry, WorkImage
-from scrapers import BaseScraper
+from common.constants import EPOCH
+from common.models import Episode, RawParagraph, TocEntry, WorkImage
 from utils import parse_date, parse_redirect, parse_series_id, parse_status
+
+from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
 

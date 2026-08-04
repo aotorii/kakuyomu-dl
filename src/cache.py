@@ -3,8 +3,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from models import UpdateResult
-from paths import OUT_DIR
+from common.models import UpdateResult
+from common.paths import OUT_DIR
 
 logger = logging.getLogger(__name__)
 

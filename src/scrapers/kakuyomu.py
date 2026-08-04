@@ -3,8 +3,9 @@ import logging
 
 import requests
 
-from models import Episode, RawParagraph, TocEntry
-from scrapers import BaseScraper
+from common.models import Episode, RawParagraph, TocEntry
+
+from .base import BaseScraper
 
 logger = logging.getLogger(__name__)
 

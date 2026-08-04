@@ -14,7 +14,7 @@ import emoji
 import inflect
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from constants import (
+from common.constants import (
     IMAGE_EXTENSIONS,
     PROMO_RE,
     SERIES_ID_RE,
@@ -22,8 +22,8 @@ from constants import (
     SITE_ID,
     SITE_NAMES,
 )
-from models import WorkMeta
-from paths import ASSETS_DIR, COOKIES
+from common.models import WorkMeta
+from common.paths import ASSETS_DIR, COOKIES
 
 
 def parse_plural(noun: str, num: int, prefix: str = "") -> str:
