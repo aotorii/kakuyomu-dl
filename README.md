@@ -88,12 +88,13 @@ options:
 ```
 
 ```
-usage: kakuyomu-dl bookmark [-h] [--check | --update | --delete INDEX [INDEX ...] | --add SERIES [SERIES ...]]
+usage: kakuyomu-dl bookmark [-h] [--check | --update [INDEX ...] | --delete INDEX [INDEX ...] | --add SERIES
+                            [SERIES ...]]
 
 options:
   -h, --help            show this help message and exit
   --check               check update for all the series on the bookmark list
-  --update              update all the series on the bookmark list
+  --update [INDEX ...]  update selected series on the bookmark list; if no indices are provided, update all the series
   --delete INDEX [INDEX ...]
                         delete series from your bookmark list
   --add SERIES [SERIES ...]

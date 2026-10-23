@@ -360,6 +360,25 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
     except FileNotFoundError:
         bookmarks = []
 
+    def _update_meta() -> None:
+        print("\nUpdating bookmark meta…")
+        with open(FILE, "r", encoding="utf-8") as f:
+            bookmarks = json.load(f)
+        for i, series in enumerate(bookmarks):
+            if i > 0:
+                time.sleep(args.delay)
+            scraper = get_scraper(series["site"], args.delay)
+            meta = scraper.fetch_work_meta(series["series_id"])
+            status = parse_status(meta.status)
+            series.update({
+                "title": meta.title,
+                "author": meta.author,
+                "status": status,
+            })
+        with open(FILE, "w", encoding="utf-8") as f:
+            json.dump(bookmarks, f, ensure_ascii=False, indent=4)
+        print("Done.")
+
     if args.add:
         for i, series in enumerate(args.add):
             if i > 0:
@@ -432,6 +451,7 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
                 batch_size=20,
             )
             cmd_fetch(fetch_args)
+        _update_meta()
         return
 
     if args.check:
