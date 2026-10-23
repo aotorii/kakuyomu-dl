@@ -388,15 +388,21 @@ def cmd_bookmark(args: argparse.Namespace) -> None:
         return
 
     if args.delete:
-        indices = [int(idx) - 1 for idx in args.delete]
+        if any(idx > len(bookmarks) for idx in args.delete):
+            raise ConfigError("Index out of range")
+        indices = [idx - 1 for idx in args.delete]
         for index in sorted(indices, reverse=True):
             bookmarks.pop(index)
         with open(FILE, "w", encoding="utf-8") as f:
             json.dump(bookmarks, f, ensure_ascii=False, indent=4)
         return
 
-    if args.update:
+    if args.update is not None:
         config = bookmark_config_init(BookmarkUpdateConfig())
+        if args.update:
+            if any(idx > len(bookmarks) for idx in args.update):
+                raise ConfigError("Index out of range")
+            bookmarks = [bookmarks[idx - 1] for idx in args.update]
         if config.skip_completed and any(
             series["status"] == "Completed" for series in bookmarks
         ):
@@ -571,12 +577,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     group.add_argument(
         "--update",
-        action="store_true",
-        help="update all the series on the bookmark list",
+        nargs="*",
+        type=argparse_positive_int,
+        metavar="INDEX",
+        help="update selected series on the bookmark list; if no indices are provided, update all the series",
     )
     group.add_argument(
         "--delete",
         nargs="+",
+        type=argparse_positive_int,
         metavar="INDEX",
         help="delete series from your bookmark list",
     )
